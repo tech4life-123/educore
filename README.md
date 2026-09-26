@@ -1,36 +1,166 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EduCore
 
-## Getting Started
+**One Platform. Many Schools.**
 
-First, run the development server:
+EduCore is a multi-tenant school management platform. A single deployment serves many schools; each school sees only its own data, enforced by PostgreSQL Row Level Security. The first target market is high schools in Liberia; the data model deliberately avoids assumptions that would block colleges and universities later.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+> **Current milestone: Foundation.** Authentication, tenant model, roles, RLS, audit logging and a protected, school‑branded dashboard shell. School modules (students, attendance, grades, …) are not built yet — see [Roadmap](#roadmap).
+
+---
+
+## Technology stack
+
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js 16 (App Router, Server Components, Server Actions, `proxy.ts`) |
+| Language | TypeScript (strict) |
+| UI | React 19, Tailwind CSS 4, small in‑house component set (no UI library) |
+| Backend | Supabase — PostgreSQL 17, Auth, Storage |
+| Hosting | Vercel (app) + Supabase (database/auth) |
+
+Runtime dependencies beyond Next/React: `@supabase/ssr`, `@supabase/supabase-js`, `server-only`. That's it.
+
+## Project structure
+
+```text
+app/
+  (auth)/login/        Sign-in page, form and server actions (signIn / signOut)
+  (school)/            School area — shared branded shell (layout.tsx)
+    dashboard/         Landing page for school users
+    settings/          Own-profile editing, read-only school configuration
+  platform/            Super-admin area (server-side privileged access)
+  account/             Explains blocked access (no profile, suspended, …)
+components/
+  ui/                  Button, TextField, Card, Table, Dialog, DropdownMenu, Alert, …
+  shell/               AppShell, navigation, mobile drawer, user menu, school logo
+lib/
+  supabase/            client.ts (browser) · server.ts (RLS-bound) · admin.ts (service role, server-only) · proxy.ts
+  auth/                roles & capabilities, safe redirect helper
+  env.ts, branding.ts, navigation.ts, format.ts
+services/              Server-only data access: auth.ts (guards), school.ts, platform.ts
+types/database.ts      Generated Supabase types
+supabase/
+  migrations/          Reproducible schema, RLS and audit migrations
+  tests/               tenant_isolation.sql — 37-case security test (self-cleaning)
+  snippets/            attach_profile.sql — provision users
+  seed.sql             Local-only demo data ("Demo School")
+proxy.ts               Session refresh + optimistic route protection
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Architecture and security decisions are documented in **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Prerequisites: Node.js ≥ 20.9, npm, and either a hosted Supabase project or Docker (for the local Supabase stack).
 
-## Learn More
+```bash
+npm install
+cp .env.example .env.local        # fill in values (see below)
+npm run dev                        # http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+Useful scripts:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run check` | lint + typecheck + build |
+| `npm run db:types` | Regenerate `types/database.ts` from the linked Supabase project |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment variables
 
-## Deploy on Vercel
+| Variable | Required | Exposed to browser | Purpose |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Yes | Publishable key (`sb_publishable_…`) or legacy anon key. Safe to expose — all access is constrained by RLS. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as a fallback name. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Only for `/platform` | **Never** | Bypasses RLS. Read only by `lib/supabase/admin.ts` (guarded by `server-only`). |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`.env*` files are git-ignored (except `.env.example`). Never commit real keys.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Supabase setup
+
+### Hosted project
+
+1. Create a Supabase project (the reference deployment uses the `educore` project, region eu-west-1).
+2. Apply the migrations in `supabase/migrations/` in filename order — either with the CLI (`supabase link --project-ref <ref>` then `supabase db push`) or by pasting each file into the SQL editor.
+3. **Authentication → Sign In / Providers:** turn **off** “Allow new users to sign up”. Accounts are provisioned by administrators; a self-registered user has no profile and therefore no data access, but there is no reason to allow it.
+4. **Authentication → URL Configuration:** set the Site URL to your production URL.
+5. Create your first school and users — see [Provisioning users](#provisioning-users).
+
+### Local stack (Docker)
+
+```bash
+npx supabase start          # starts Postgres/Auth/Studio locally
+npx supabase db reset       # applies migrations + seed.sql (Demo School, Demo School Two)
+```
+
+Use the printed API URL and publishable key in `.env.local`. Public sign-up is disabled in `supabase/config.toml`.
+
+### Provisioning users
+
+There is intentionally no self-service registration or role assignment in this milestone.
+
+1. Supabase Dashboard → **Authentication → Users → Add user** (auto-confirm, or send an invite).
+2. Run `supabase/snippets/attach_profile.sql` in the SQL editor with the user's email, school code and role. The same file shows how to create a school and a platform super admin.
+
+## Database migrations
+
+| Migration | Contents |
+| --- | --- |
+| `…_foundation_schema.sql` | Enums; `schools`, `school_settings`, `profiles`, `audit_logs`; constraints, indexes, `updated_at` triggers, default-settings trigger |
+| `…_tenant_isolation_rls.sql` | `private` helper functions, table/column privileges, RLS policies, identity-column guard |
+| `…_audit_triggers.sql` | Append-only audit logging on schools, school_settings, profiles |
+| `…_security_hardening.sql` | Advisor fixes: revoke RPC execute on a platform helper, merge profile SELECT policies |
+
+Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
+
+## Authentication
+
+- Email + password via Supabase Auth; credentials never touch EduCore tables.
+- Sessions live in HTTP-only cookies managed by `@supabase/ssr`; `proxy.ts` refreshes them on each request.
+- After sign-in the server reads the user's profile and routes by role: `super_admin → /platform`, everyone else → `/dashboard` (or a validated `?next=` path).
+- Missing profile, deactivated profile, or suspended school → `/account`, which explains the situation instead of crashing.
+- Sign-in errors never reveal whether an account exists. Supabase Auth applies rate limiting.
+
+## Security model (summary)
+
+- **Tenant isolation in the database.** RLS is enabled *and forced* on every table. Each policy resolves the caller's school from their own active profile; a user from School A cannot read or change School B's rows through any API path.
+- **Least privilege.** Browser roles have no INSERT/DELETE on any table and only column-scoped UPDATE (e.g. users can edit their own name/phone, never `role`, `status` or `school_id`).
+- **Layered route protection.** `proxy.ts` (optimistic redirect) → server-side guards in every layout/page/action (`services/auth.ts`) → RLS.
+- **Super Admin** has no special RLS powers. Cross-school access happens only in server-only code after a server-side role check. Details in [ARCHITECTURE.md](./ARCHITECTURE.md#super-admin).
+- **Audit trail.** Changes to schools, settings and profiles are recorded (who, what, when, old → new) in an append-only table.
+
+### Running the security tests
+
+```bash
+psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
+```
+
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back.
+
+## Deployment (Vercel)
+
+1. Import the GitHub repository in Vercel (framework preset: Next.js; no custom build settings needed).
+2. Add the environment variables above for Production (and Preview if used). Mark `SUPABASE_SERVICE_ROLE_KEY` as sensitive; do not add it to Preview unless needed.
+3. Deploy, then set the Supabase Auth Site URL to the Vercel domain.
+
+There are no hard-coded hosts or localhost URLs; redirects are built from the incoming request.
+
+## Current milestone status
+
+Foundation — complete except for items marked NOT VERIFIED in the milestone report (end-to-end sign-in against a live project was not executable from the build environment).
+
+## Roadmap
+
+1. **School onboarding & user management** — platform operators create schools; school admins invite staff/students/parents and manage roles (server-side, audited).
+2. Academic structure — academic years/terms, classes, subjects, enrolment.
+3. Attendance.
+4. Assessments, examinations and grades.
+5. Report cards.
+6. Announcements and notifications.
+7. Parent portal.
+8. Reports and analytics.
+9. University support (faculties, programmes, credit hours, GPA).
