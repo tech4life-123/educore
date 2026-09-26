@@ -1,0 +1,30 @@
+import { EduCoreLogo } from "@/components/brand/educore-logo";
+import { AppShell, SchoolBrand } from "@/components/shell/app-shell";
+import { ROLE_LABELS } from "@/lib/auth/roles";
+import { fullName } from "@/lib/format";
+import type { NavItem } from "@/lib/navigation";
+import { requireSuperAdmin } from "@/services/auth";
+import { signOut } from "@/app/(auth)/login/actions";
+
+const PLATFORM_NAVIGATION: readonly NavItem[] = [
+  { label: "Schools", href: "/platform", icon: "platform", available: true, roles: [] },
+];
+
+export default async function PlatformLayout({ children }: LayoutProps<"/platform">) {
+  const { user, profile } = await requireSuperAdmin();
+
+  return (
+    <AppShell
+      identity={{
+        homeHref: "/platform",
+        primaryColor: null,
+        brand: <SchoolBrand logo={<EduCoreLogo showName={false} />} name="EduCore" subtitle="Platform administration" />,
+      }}
+      user={{ fullName: fullName(profile), email: user.email ?? null, roleLabel: ROLE_LABELS.super_admin }}
+      navigation={PLATFORM_NAVIGATION}
+      signOutAction={signOut}
+    >
+      {children}
+    </AppShell>
+  );
+}
