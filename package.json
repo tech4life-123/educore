@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types typescript --linked --schema public > types/database.ts",
+    "check": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -25,5 +28,8 @@
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   }
 }
