@@ -1289,6 +1289,138 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_profiles: {
+        Row: {
+          created_at: string
+          employee_number: string | null
+          employment_type: string | null
+          gender: string | null
+          hire_date: string | null
+          home_address: string | null
+          id: string
+          job_title: string | null
+          profile_id: string
+          qualification: string | null
+          school_id: string
+          specialization: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_number?: string | null
+          employment_type?: string | null
+          gender?: string | null
+          hire_date?: string | null
+          home_address?: string | null
+          id?: string
+          job_title?: string | null
+          profile_id: string
+          qualification?: string | null
+          school_id: string
+          specialization?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_number?: string | null
+          employment_type?: string | null
+          gender?: string | null
+          hire_date?: string | null
+          home_address?: string | null
+          id?: string
+          job_title?: string | null
+          profile_id?: string
+          qualification?: string | null
+          school_id?: string
+          specialization?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_profiles_profile_fkey"
+            columns: ["profile_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "staff_profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profiles: {
+        Row: {
+          admission_date: string | null
+          admission_number: string | null
+          created_at: string
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          gender: string | null
+          home_address: string | null
+          id: string
+          nationality: string | null
+          place_of_birth: string | null
+          previous_school: string | null
+          profile_id: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          admission_date?: string | null
+          admission_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          gender?: string | null
+          home_address?: string | null
+          id?: string
+          nationality?: string | null
+          place_of_birth?: string | null
+          previous_school?: string | null
+          profile_id: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          admission_date?: string | null
+          admission_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          gender?: string | null
+          home_address?: string | null
+          id?: string
+          nationality?: string | null
+          place_of_birth?: string | null
+          previous_school?: string | null
+          profile_id?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_profile_fkey"
+            columns: ["profile_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "student_profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           code: string
