@@ -4,7 +4,7 @@
 
 EduCore is a multi-tenant school management platform. A single deployment serves many schools; each school sees only its own data, enforced by PostgreSQL Row Level Security. The first target market is high schools in Liberia; the data model deliberately avoids assumptions that would block colleges and universities later.
 
-> **Current milestone: Foundation.** Authentication, tenant model, roles, RLS, audit logging and a protected, school‑branded dashboard shell. School modules (students, attendance, grades, …) are not built yet — see [Roadmap](#roadmap).
+> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). Academic modules come next; see [Roadmap](#roadmap).
 
 ---
 
@@ -76,7 +76,7 @@ Useful scripts:
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Yes | Publishable key (`sb_publishable_…`) or legacy anon key. Safe to expose — all access is constrained by RLS. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as a fallback name. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Only for `/platform` | **Never** | Bypasses RLS. Read only by `lib/supabase/admin.ts` (guarded by `server-only`). |
+| `SUPABASE_SERVICE_ROLE_KEY` | For user management and `/platform` | **Never** | Bypasses RLS. Read only by `lib/supabase/admin.ts` (guarded by `server-only`), and only after a database-side authorization check. |
 
 `.env*` files are git-ignored (except `.env.example`). Never commit real keys.
 
@@ -101,10 +101,11 @@ Use the printed API URL and publishable key in `.env.local`. Public sign-up is d
 
 ### Provisioning users
 
-There is intentionally no self-service registration or role assignment in this milestone.
+- **School users:** a school administrator uses **User accounts** in the app. They can add one person, or import a CSV of up to 100 people. Each person gets a login (their email, or `username@SCHOOLCODE`) and a one-time password that they must change at first sign-in.
+- **Schools:** a platform super admin uses **/platform → Add school**, which creates the school and its first administrator.
+- **The first platform super admin** has to be bootstrapped once. Create the user in Supabase Dashboard → Authentication → Users, then run the super-admin block of `supabase/snippets/attach_profile.sql`.
 
-1. Supabase Dashboard → **Authentication → Users → Add user** (auto-confirm, or send an invite).
-2. Run `supabase/snippets/attach_profile.sql` in the SQL editor with the user's email, school code and role. The same file shows how to create a school and a platform super admin.
+Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment variable is **required** for user management (creating accounts, suspending, resetting passwords). The Supabase ↔ Vercel integration sets it automatically.
 
 ## Database migrations
 
@@ -114,6 +115,7 @@ There is intentionally no self-service registration or role assignment in this m
 | `…_tenant_isolation_rls.sql` | `private` helper functions, table/column privileges, RLS policies, identity-column guard |
 | `…_audit_triggers.sql` | Append-only audit logging on schools, school_settings, profiles |
 | `…_security_hardening.sql` | Advisor fixes: revoke RPC execute on a platform helper, merge profile SELECT policies |
+| `…_user_management.sql` | `profiles.username/email/must_change_password`; `create_member`, `set_member_status`, `require_password_change`, `platform_create_school` |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
 
@@ -139,7 +141,7 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` works the same way and adds 28 checks for the user-management functions.
 
 ## Deployment (Vercel)
 
@@ -155,12 +157,13 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 
 ## Roadmap
 
-1. **School onboarding & user management** — platform operators create schools; school admins invite staff/students/parents and manage roles (server-side, audited).
-2. Academic structure — academic years/terms, classes, subjects, enrolment.
-3. Attendance.
-4. Assessments, examinations and grades.
-5. Report cards.
-6. Announcements and notifications.
-7. Parent portal.
-8. Reports and analytics.
-9. University support (faculties, programmes, credit hours, GPA).
+1. ~~School onboarding & user management~~ ✅
+2. School settings & branding editor (logo upload, colours, academic settings)
+3. Academic structure — academic years/terms, classes, subjects, enrolment.
+4. Attendance.
+5. Assessments, examinations and grades.
+6. Report cards.
+7. Announcements and notifications.
+8. Parent portal.
+9. Reports and analytics.
+10. University support (faculties, programmes, credit hours, GPA).
