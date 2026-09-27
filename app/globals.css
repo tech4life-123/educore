@@ -83,7 +83,8 @@ dialog::backdrop {
   }
 }
 
-/* Printing: only login slips / credential sheets are printed. */
+/* Printing: in the app, only login slips / credential sheets print.
+   Pages under /print (.print-document) print as full documents. */
 @media print {
   body * {
     visibility: hidden;
@@ -97,4 +98,21 @@ dialog::backdrop {
     inset: 0 auto auto 0;
     width: 100%;
   }
+}
+
+@media print {
+  body:has(.print-document) * {
+    visibility: visible;
+  }
+  .report-card {
+    break-after: page;
+  }
+  .report-card:last-child {
+    break-after: auto;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
 }

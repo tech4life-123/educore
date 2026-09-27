@@ -31,7 +31,7 @@ export const SCHOOL_NAVIGATION: readonly NavItem[] = [
   { label: "Classes", href: "/classes", icon: "classes", available: true, roles: ["school_admin", "teacher"] },
   { label: "Attendance", href: "/attendance", icon: "attendance", available: false, roles: ALL },
   { label: "Grades", href: "/grades", icon: "grades", available: true, roles: ALL },
-  { label: "Report Cards", href: "/report-cards", icon: "reportCards", available: false, roles: ["school_admin", "student", "parent"] },
+  { label: "Report Cards", href: "/report-cards", icon: "reportCards", available: true, roles: ALL },
   { label: "Announcements", href: "/announcements", icon: "announcements", available: false, roles: ALL },
   { label: "Reports", href: "/reports", icon: "reports", available: false, roles: ["school_admin"] },
   { label: "Settings", href: "/settings", icon: "settings", available: true, roles: ALL },
