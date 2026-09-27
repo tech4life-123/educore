@@ -24,10 +24,12 @@ export function LoginForm({ next }: { next?: string }) {
       <TextField
         id="email"
         name="email"
-        type="email"
-        label="Email address"
-        autoComplete="email"
-        inputMode="email"
+        type="text"
+        label="Email or username"
+        hint="Students and parents without email: use your username with your school code, e.g. stu0042@PILOT-01."
+        autoComplete="username"
+        autoCapitalize="none"
+        spellCheck={false}
         required
         defaultValue={state.email}
         error={state.fieldErrors?.email}

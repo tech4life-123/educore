@@ -23,7 +23,17 @@ export type SchoolSettings = Tables<"school_settings">;
 /** Shape passed to UI — no internal ids beyond what the UI needs. */
 export type ViewerProfile = Pick<
   Profile,
-  "id" | "first_name" | "middle_name" | "last_name" | "phone" | "photo_url" | "role" | "status"
+  | "id"
+  | "first_name"
+  | "middle_name"
+  | "last_name"
+  | "phone"
+  | "photo_url"
+  | "role"
+  | "status"
+  | "username"
+  | "email"
+  | "must_change_password"
 >;
 export type ViewerSchool = Pick<
   School,
@@ -43,7 +53,8 @@ export type AuthContext =
 export type SchoolMemberContext = Extract<AuthContext, { status: "ok" }>;
 export type PlatformContext = Extract<AuthContext, { status: "platform" }>;
 
-const PROFILE_COLUMNS = "id, first_name, middle_name, last_name, phone, photo_url, role, status, school_id" as const;
+const PROFILE_COLUMNS =
+  "id, first_name, middle_name, last_name, phone, photo_url, role, status, username, email, must_change_password, school_id" as const;
 const SCHOOL_COLUMNS =
   "id, name, code, motto, logo_url, primary_color, secondary_color, school_type, city, county, country" as const;
 
@@ -113,7 +124,10 @@ export async function requireUser(nextPath?: string) {
 /** An active member of an active school. Everyone else is routed appropriately. */
 export async function requireSchoolMember(nextPath: string): Promise<SchoolMemberContext> {
   const context = await requireUser(nextPath);
-  if (context.status === "ok") return context;
+  if (context.status === "ok") {
+    if (context.profile.must_change_password) redirect("/change-password");
+    return context;
+  }
   if (context.status === "platform") redirect("/platform");
   redirect("/account");
 }
@@ -121,7 +135,10 @@ export async function requireSchoolMember(nextPath: string): Promise<SchoolMembe
 /** Platform super admin — verified server-side from their own profile row. */
 export async function requireSuperAdmin(): Promise<PlatformContext> {
   const context = await requireUser("/platform");
-  if (context.status === "platform") return context;
+  if (context.status === "platform") {
+    if (context.profile.must_change_password) redirect("/change-password");
+    return context;
+  }
   if (context.status === "ok") redirect("/dashboard?denied=platform");
   redirect("/account");
 }

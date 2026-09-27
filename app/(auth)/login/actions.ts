@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConfigurationError } from "@/lib/env";
 import { homePathForRole } from "@/lib/auth/roles";
 import { safeNextPath } from "@/lib/auth/safe-redirect";
+import { parseLoginIdentifier } from "@/lib/auth/login-id";
 
 export interface LoginState {
   formError?: string;
@@ -13,25 +14,26 @@ export interface LoginState {
   email?: string;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export async function signIn(_previous: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const next = safeNextPath(formData.get("next"));
+  const identifier = parseLoginIdentifier(email);
 
   const fieldErrors: LoginState["fieldErrors"] = {};
-  if (!email) fieldErrors.email = "Enter your email address.";
-  else if (!EMAIL_PATTERN.test(email) || email.length > 254) fieldErrors.email = "Enter a valid email address.";
+  if (!email) fieldErrors.email = "Enter your email or username.";
+  else if (identifier.kind === "invalid") {
+    fieldErrors.email = "Enter your email, or your username with your school code, e.g. stu0042@PILOT-01.";
+  }
   if (!password) fieldErrors.password = "Enter your password.";
   else if (password.length > 128) fieldErrors.password = "Password is too long.";
 
-  if (fieldErrors.email || fieldErrors.password) return { fieldErrors, email };
+  if (fieldErrors.email || fieldErrors.password || identifier.kind === "invalid") return { fieldErrors, email };
 
   let destination: string;
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: identifier.authEmail, password });
 
     if (error || !data.user) {
       return { formError: messageForAuthError(error), email };
@@ -40,12 +42,14 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
     // Decide where to go from the user's own profile (readable under RLS).
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, status")
+      .select("role, status, must_change_password")
       .eq("user_id", data.user.id)
       .maybeSingle();
 
     if (!profile || profile.status !== "active") {
       destination = "/account";
+    } else if (profile.must_change_password) {
+      destination = "/change-password";
     } else if (profile.role === "super_admin") {
       destination = "/platform";
     } else {
