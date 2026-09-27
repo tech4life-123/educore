@@ -173,7 +173,7 @@ or paste the file into the Supabase SQL editor. It creates throwaway tenants/use
 
 ## EduCore AI
 
-The assistant is built in stages (AI-1 … AI-8). **AI-1 (done):** provider abstraction, secure server endpoint, usage log and limits. There is no chat screen yet (AI-2), and the assistant can't read school records yet (AI-4).
+The assistant is built in stages (AI-1 … AI-8). **AI-1 (done):** provider abstraction, secure server endpoint, usage log and limits. **AI-2 (done):** the chat panel — an **Ask AI** button in the top bar of every portal (shown only when the assistant is switched on), streaming replies, suggested questions per role, Stop, Retry, Clear, keyboard and screen-reader support. The assistant can't read school records yet (AI-4); questions that need records are not suggested until then.
 
 **Turn it on** (Vercel → Project → Settings → Environment Variables, then redeploy):
 

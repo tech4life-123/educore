@@ -70,6 +70,11 @@ body {
   border-radius: 6px;
 }
 
+/* Fields inside a container that draws its own focus ring (EduCore AI composer). */
+[data-focus-ring-container] :where(textarea, input):focus-visible {
+  outline: none;
+}
+
 dialog::backdrop {
   background: rgb(17 24 39 / 0.45);
 }

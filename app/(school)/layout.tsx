@@ -10,6 +10,9 @@ import { formatDateTime } from "@/lib/announcements";
 import { todayIn } from "@/lib/attendance";
 import { listAnnouncements } from "@/services/announcements";
 import { getSchoolProfile } from "@/services/school";
+import { AssistantLauncher } from "@/components/ai/assistant";
+import { getAiConfig } from "@/lib/ai/config";
+import { AI_DATA_TOOLS_AVAILABLE, suggestionsFor } from "@/lib/ai/suggestions";
 
 /**
  * Shell for every school-scoped route. The layout guard keeps the shell from
@@ -44,6 +47,9 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
       }}
       navigation={navigationFor(role)}
       signOutAction={signOut}
+      assistant={
+        getAiConfig().enabled ? <AssistantLauncher suggestions={suggestionsFor(role)} dataAccess={AI_DATA_TOOLS_AVAILABLE} /> : null
+      }
       banner={
         school.is_demo ? (
           <div role="note" className="border-b border-warning/30 bg-warning-soft px-4 py-2 text-center text-sm text-warning sm:px-6">

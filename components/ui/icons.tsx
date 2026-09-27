@@ -173,6 +173,28 @@ export const Icons = {
       <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
     </Base>
   ),
+  sparkles: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8L12 3Z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
+    </Base>
+  ),
+  send: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+    </Base>
+  ),
+  stop: (p: IconProps) => (
+    <Base {...p}>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </Base>
+  ),
+  trash: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+    </Base>
+  ),
 } as const;
 
 export type IconName = keyof typeof Icons;

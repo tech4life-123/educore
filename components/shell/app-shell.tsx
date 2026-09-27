@@ -33,6 +33,7 @@ export function AppShell({
   signOutAction,
   notifications,
   banner,
+  assistant,
   children,
 }: {
   identity: ShellIdentity;
@@ -43,6 +44,8 @@ export function AppShell({
   notifications?: ReactNode;
   /** Full-width notice under the top bar (e.g. demonstration school). */
   banner?: ReactNode;
+  /** EduCore AI launcher, when the assistant is switched on. */
+  assistant?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -73,6 +76,7 @@ export function AppShell({
             </Link>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            {assistant}
             {notifications ?? <NotificationsMenu />}
             <UserMenu {...user} signOutAction={signOutAction} />
           </div>

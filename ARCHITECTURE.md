@@ -273,6 +273,14 @@ Supabase
 - **Data minimisation.** In AI-1 the model receives only the person's role and school name. From AI-4 it will get data only through tools that re-check authorisation, and tool results are marked as data, never instructions.
 - **Secrets.** `ANTHROPIC_API_KEY` has no `NEXT_PUBLIC_` prefix and is read only in `lib/ai/config.ts` (`server-only`). A build scan of `.next/static` confirms no key name, provider URL or header appears in browser code.
 
+### AI-2: chat panel
+
+- `components/ai/assistant.tsx` — the **Ask AI** launcher and panel (native `<dialog>`: focus trap, Escape, focus returns to the button). Mounted by the school and platform layouts only when `getAiConfig().enabled`; only booleans and suggestion strings cross to the browser.
+- **Conversation in memory only.** Kept in React state in the shell, so it survives page changes but not a reload or sign-out. Nothing is written to localStorage, sessionStorage or the server. `lib/ai/client.ts` trims the history to the server's limits before sending.
+- **Safe rendering.** Replies are parsed by `lib/ai/rich-text.ts` (paragraphs, lists, bold, code) and rendered as React elements, never as HTML, so model output can't inject markup or scripts.
+- **Accessibility.** The conversation is a `role="log"`; screen readers get a single announcement per reply (not every streamed word) and errors as alerts. axe (WCAG 2 A/AA) reports no violations on the empty or answered panel, on desktop and phone.
+- **Suggestions per role** live in `lib/ai/suggestions.ts`; data questions are hidden until `AI_DATA_TOOLS_AVAILABLE` is switched on in AI-4.
+
 ## 20. Security decisions log
 
 | # | Decision | Rationale |
@@ -313,3 +321,5 @@ Supabase
 | 34 | AI endpoint requires same origin and a JSON body | Route handlers lack Server Actions' origin check; without it another site could spend a school's AI budget with a visitor's session. |
 | 35 | AI usage log stores metadata only, written by the server | Limits and monitoring need who/when/tokens, not what was asked; students' questions are not kept. |
 | 36 | AI refuses to run if usage limits can't be enforced | A misconfiguration must never mean unmetered spending. |
+| 37 | AI conversations kept only in page memory | Shared school computers: nothing a student asked is left behind in browser storage or on the server. |
+| 38 | AI replies rendered from a parsed structure, never as HTML | Text from the model, or from school data it quotes, can't inject markup or scripts. |
