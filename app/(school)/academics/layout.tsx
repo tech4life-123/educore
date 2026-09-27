@@ -5,6 +5,7 @@ const TABS = [
   { href: "/academics", label: "Academic years", exact: true },
   { href: "/academics/grades", label: "Grade levels" },
   { href: "/academics/subjects", label: "Subjects" },
+  { href: "/academics/grading", label: "Grading" },
 ] as const;
 
 export default async function AcademicsLayout({ children }: LayoutProps<"/academics">) {
@@ -14,7 +15,7 @@ export default async function AcademicsLayout({ children }: LayoutProps<"/academ
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Academic setup</h1>
-        <p className="mt-1 text-sm text-muted">Academic years, marking periods, grade levels and subjects for your school.</p>
+        <p className="mt-1 text-sm text-muted">Academic years, marking periods, grade levels, subjects and grading rules for your school.</p>
       </div>
       <SectionTabs label="Academic setup sections" tabs={TABS} />
       {children}

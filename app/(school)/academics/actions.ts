@@ -292,3 +292,72 @@ export async function setSubjectActive(_prev: ActionState, formData: FormData): 
   if (error || !data?.length) return bad(friendlyDbError(error, "The subject couldn’t be updated."));
   return done(active ? "Subject reactivated." : "Subject deactivated.", "/academics/subjects", "/classes");
 }
+
+// ---------------------------------------------------------------------------
+// Grading: assessment categories and exam weight
+// ---------------------------------------------------------------------------
+
+const WEIGHT = /^\d{1,3}(\.\d{1,2})?$/;
+
+function weightOf(formData: FormData): number | null {
+  const raw = text(formData, "weight");
+  if (!WEIGHT.test(raw)) return null;
+  const n = Number(raw);
+  return n >= 0 && n <= 100 ? n : null;
+}
+
+export async function addCategory(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase, context } = await guard();
+  const name = text(formData, "name");
+  const weight = weightOf(formData);
+  if (name.length < 2 || name.length > 40) return bad("Enter a category name (2–40 characters).");
+  if (weight === null) return bad("The weight must be a number from 0 to 100.");
+  const { data: last } = await supabase
+    .from("assessment_categories")
+    .select("sequence")
+    .eq("school_id", context.school.id)
+    .order("sequence", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("assessment_categories")
+    .insert({ school_id: context.school.id, name, weight, sequence: Math.min((last?.sequence ?? 0) + 1, 99) });
+  if (error?.code === "23505") return bad("A category with that name already exists.");
+  if (error) return bad(friendlyDbError(error, "The category couldn’t be added."));
+  return done(`${name} added.`, "/academics/grading");
+}
+
+export async function updateCategory(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase, context } = await guard();
+  const categoryId = id(formData);
+  const name = text(formData, "name");
+  const weight = weightOf(formData);
+  const active = formData.get("is_active") === "on";
+  if (!categoryId) return bad("That category wasn’t found.");
+  if (name.length < 2 || name.length > 40) return bad("Enter a category name (2–40 characters).");
+  if (weight === null) return bad("The weight must be a number from 0 to 100.");
+  const { data, error } = await supabase
+    .from("assessment_categories")
+    .update({ name, weight, is_active: active })
+    .eq("id", categoryId)
+    .eq("school_id", context.school.id)
+    .select("id");
+  if (error?.code === "23505") return bad("Another category already has that name.");
+  if (error || !data?.length) return bad(friendlyDbError(error, "The category couldn’t be saved."));
+  revalidatePath("/grades", "layout");
+  return done("Saved.", "/academics/grading");
+}
+
+export async function updateExamWeight(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase, context } = await guard();
+  const weight = weightOf(formData);
+  if (weight === null) return bad("The exam weight must be a number from 0 to 100.");
+  const { data, error } = await supabase
+    .from("school_settings")
+    .update({ exam_weight: weight })
+    .eq("school_id", context.school.id)
+    .select("id");
+  if (error || !data?.length) return bad(friendlyDbError(error, "The exam weight couldn’t be saved."));
+  revalidatePath("/grades", "layout");
+  return done(`Exam weight set to ${weight}%.`, "/academics/grading");
+}
