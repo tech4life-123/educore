@@ -803,6 +803,237 @@ export type Database = {
           },
         ]
       }
+      promotion_decisions: {
+        Row: {
+          academic_year_id: string
+          created_at: string
+          decided_by: string | null
+          decision: string
+          id: string
+          note: string | null
+          school_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id: string
+          created_at?: string
+          decided_by?: string | null
+          decision: string
+          id?: string
+          note?: string | null
+          school_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string
+          created_at?: string
+          decided_by?: string | null
+          decision?: string
+          id?: string
+          note?: string | null
+          school_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_decisions_by_fkey"
+            columns: ["decided_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "promotion_decisions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_decisions_student_fkey"
+            columns: ["student_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "promotion_decisions_year_fkey"
+            columns: ["academic_year_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
+      report_card_remarks: {
+        Row: {
+          author_id: string | null
+          class_id: string
+          created_at: string
+          id: string
+          remark: string
+          school_id: string
+          student_id: string
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          class_id: string
+          created_at?: string
+          id?: string
+          remark: string
+          school_id: string
+          student_id: string
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          class_id?: string
+          created_at?: string
+          id?: string
+          remark?: string
+          school_id?: string
+          student_id?: string
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_card_remarks_author_fkey"
+            columns: ["author_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_card_remarks_class_fkey"
+            columns: ["class_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_card_remarks_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_card_remarks_student_fkey"
+            columns: ["student_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_card_remarks_term_fkey"
+            columns: ["term_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "academic_terms"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
+      report_cards: {
+        Row: {
+          academic_year_id: string
+          average: number | null
+          class_id: string
+          class_size: number
+          created_at: string
+          data: Json
+          id: string
+          issued_at: string
+          issued_by: string | null
+          rank: number | null
+          school_id: string
+          student_id: string
+          term_id: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id: string
+          average?: number | null
+          class_id: string
+          class_size: number
+          created_at?: string
+          data: Json
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          rank?: number | null
+          school_id: string
+          student_id: string
+          term_id: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string
+          average?: number | null
+          class_id?: string
+          class_size?: number
+          created_at?: string
+          data?: Json
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          rank?: number | null
+          school_id?: string
+          student_id?: string
+          term_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_cards_class_fkey"
+            columns: ["class_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_cards_issued_by_fkey"
+            columns: ["issued_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_cards_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_cards_student_fkey"
+            columns: ["student_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_cards_term_fkey"
+            columns: ["term_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "academic_terms"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "report_cards_year_fkey"
+            columns: ["academic_year_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
       school_settings: {
         Row: {
           academic_system: Database["public"]["Enums"]["academic_system"]
