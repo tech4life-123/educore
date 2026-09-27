@@ -64,10 +64,12 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          email: string | null
           first_name: string
           id: string
           last_name: string
           middle_name: string | null
+          must_change_password: boolean
           phone: string | null
           photo_url: string | null
           role: Database["public"]["Enums"]["app_role"]
@@ -75,13 +77,16 @@ export type Database = {
           status: Database["public"]["Enums"]["profile_status"]
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           created_at?: string
+          email?: string | null
           first_name: string
           id?: string
           last_name: string
           middle_name?: string | null
+          must_change_password?: boolean
           phone?: string | null
           photo_url?: string | null
           role: Database["public"]["Enums"]["app_role"]
@@ -89,13 +94,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           created_at?: string
+          email?: string | null
           first_name?: string
           id?: string
           last_name?: string
           middle_name?: string | null
+          must_change_password?: boolean
           phone?: string | null
           photo_url?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -103,6 +111,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -238,7 +247,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_member: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_middle_name: string
+          p_phone: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_school_id: string
+          p_user_id: string
+          p_username: string
+        }
+        Returns: string
+      }
+      platform_create_school: {
+        Args: {
+          p_city: string
+          p_code: string
+          p_country: string
+          p_county: string
+          p_motto: string
+          p_name: string
+          p_primary_color: string
+          p_school_type: Database["public"]["Enums"]["school_type"]
+          p_slug: string
+        }
+        Returns: string
+      }
+      require_password_change: {
+        Args: { p_profile_id: string }
+        Returns: string
+      }
+      set_member_status: {
+        Args: {
+          p_profile_id: string
+          p_status: Database["public"]["Enums"]["profile_status"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       academic_system: "semester" | "trimester" | "quarter" | "term"
