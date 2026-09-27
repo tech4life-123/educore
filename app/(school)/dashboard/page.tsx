@@ -12,6 +12,9 @@ import { locationLine, schoolTypeLabel } from "@/lib/format";
 import { navigationFor } from "@/lib/navigation";
 import { requireSchoolMember } from "@/services/auth";
 import { getSetupCounts } from "@/services/classes";
+import { listAnnouncements } from "@/services/announcements";
+import { getSchoolProfile } from "@/services/school";
+import { todayIn } from "@/lib/attendance";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -21,6 +24,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const role = profile.role as SchoolRole;
   const upcoming = navigationFor(role).filter((item) => !item.available);
   const setup = role === "school_admin" ? await getSetupCounts(school.id) : null;
+  const schoolProfile = await getSchoolProfile(school.id);
+  const news = (await listAnnouncements(school.id, profile.id, todayIn(schoolProfile?.timezone ?? "Africa/Monrovia")))
+    .filter((a) => a.isLive)
+    .slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -106,17 +113,34 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </Card>
       </div>
 
-      <Card aria-labelledby="activity-card-title">
-        <CardHeader title="Recent activity" titleId="activity-card-title" />
-        <EmptyState
-          title="Nothing to show yet"
-          description="Activity from attendance, grades and announcements will appear here once those modules are live."
+      <Card aria-labelledby="news-card-title">
+        <CardHeader
+          title="Announcements"
+          titleId="news-card-title"
           action={
-            <Link href="/settings" className="text-sm font-medium text-foreground underline underline-offset-4">
-              Review your profile
+            <Link href="/announcements" className="text-sm font-medium text-brand underline-offset-4 hover:underline">
+              See all
             </Link>
           }
         />
+        {news.length === 0 ? (
+          <EmptyState icon="announcements" title="No announcements yet" description="School news will appear here." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {news.map((a) => (
+              <li key={a.id}>
+                <Link href={`/announcements/${a.id}`} className="block px-5 py-3 hover:bg-surface-muted">
+                  <span className="flex items-center gap-2">
+                    {!a.isRead ? <span className="size-2 rounded-full bg-brand" aria-label="Unread" /> : null}
+                    <span className={a.isRead ? "font-medium text-foreground" : "font-semibold text-foreground"}>{a.title}</span>
+                    {a.pinned ? <Badge tone="brand">Pinned</Badge> : null}
+                  </span>
+                  <span className="mt-0.5 line-clamp-1 block text-sm text-muted">{a.body}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );

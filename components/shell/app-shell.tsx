@@ -31,12 +31,15 @@ export function AppShell({
   user,
   navigation,
   signOutAction,
+  notifications,
   children,
 }: {
   identity: ShellIdentity;
   user: ShellUser;
   navigation: readonly NavItem[];
   signOutAction: () => Promise<void>;
+  /** Bell contents; defaults to an empty bell. */
+  notifications?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -67,7 +70,7 @@ export function AppShell({
             </Link>
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <NotificationsMenu />
+            {notifications ?? <NotificationsMenu />}
             <UserMenu {...user} signOutAction={signOutAction} />
           </div>
         </header>

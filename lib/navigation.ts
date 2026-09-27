@@ -32,7 +32,7 @@ export const SCHOOL_NAVIGATION: readonly NavItem[] = [
   { label: "Attendance", href: "/attendance", icon: "attendance", available: true, roles: ALL },
   { label: "Grades", href: "/grades", icon: "grades", available: true, roles: ALL },
   { label: "Report Cards", href: "/report-cards", icon: "reportCards", available: true, roles: ALL },
-  { label: "Announcements", href: "/announcements", icon: "announcements", available: false, roles: ALL },
+  { label: "Announcements", href: "/announcements", icon: "announcements", available: true, roles: ALL },
   { label: "Reports", href: "/reports", icon: "reports", available: false, roles: ["school_admin"] },
   { label: "Settings", href: "/settings", icon: "settings", available: true, roles: ALL },
 ];
