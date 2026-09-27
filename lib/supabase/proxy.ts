@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
+import { getSupabasePublicKey, getSupabaseUrl } from "@/lib/env";
 
 export const PROTECTED_PREFIXES = ["/dashboard", "/platform", "/settings", "/account"] as const;
 
@@ -19,9 +20,8 @@ export function isProtectedPath(pathname: string): boolean {
  * enforces tenant isolation with RLS.
  */
 export async function updateSession(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabasePublicKey();
 
   let response = NextResponse.next({ request });
 

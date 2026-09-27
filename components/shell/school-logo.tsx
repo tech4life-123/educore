@@ -1,14 +1,14 @@
 import Image from "next/image";
 import { cn } from "@/lib/cn";
 import { initialsFor } from "@/lib/branding";
+import { getSupabaseUrl } from "@/lib/env";
 
 const sizes = { sm: 32, md: 40, lg: 56 } as const;
 
 function isOptimizableHost(url: string): boolean {
   try {
-    const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-      : null;
+    const supabaseUrl = getSupabaseUrl();
+    const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : null;
     return new URL(url).hostname === supabaseHost;
   } catch {
     return false;
