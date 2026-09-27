@@ -217,7 +217,17 @@ Personal data follows need-to-know, enforced by RLS:
 
 The Students directory shows admins everyone. It shows a teacher only the students of classes they teach. "Assign admission numbers" numbers any unnumbered students `<year>-0001`, `-0002`, … continuing after the highest existing number.
 
-## 15. Security decisions log
+## 15. Announcements (milestone 8)
+
+**Audiences.** An announcement goes to one of: `everyone`, `staff`, `students`, `parents`, or one `class`. A class announcement reaches the class's students, their linked parents and the teachers of the class (`private.in_announcement_audience`).
+
+**Posting.** Admins may post to any audience. Teachers may post only to a class they teach (`private.can_post_announcement`), and RLS applies the same check again when a post is edited, so a teacher can't widen their own post to the whole school. Authors edit or delete their own posts; admins can edit or delete any post.
+
+**Visibility.** Readers see a post only once `publish_at` has passed, until `expires_on`, and only if they are in its audience. Admins and authors also see scheduled and expired posts.
+
+**Unread markers.** `announcement_reads` records one row per person per post; the database sets the `profile_id`, and a read can only be recorded for a post the person can see. These rows drive the unread dot, the bell badge and the dashboard card. Reads are not audited (high volume, low value); announcements themselves are.
+
+## 16. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |

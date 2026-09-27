@@ -4,7 +4,7 @@
 
 EduCore is a multi-tenant school management platform. A single deployment serves many schools; each school sees only its own data, enforced by PostgreSQL Row Level Security. The first target market is high schools in Liberia; the data model deliberately avoids assumptions that would block colleges and universities later.
 
-> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). 3. School branding & academic structure (logo, colours, settings; academic years with the Liberian 2 × (3 periods + exam) calendar; grade levels Nursery–12; subjects; classes, subject teachers, enrolment; parent ↔ child links; setup checklist). 4. Assessments & grades (weighted categories, marking-period and exam grades, Liberian semester averages, submit → review → publish, student & parent results). 5. Report cards (issued snapshots with class rank, homeroom remarks, promotion, A4 printing) and group password resets. 6. Attendance (daily class registers, school overview, class summaries, attendance on report cards). 7. Students & Teachers directories (school records: admission numbers, date of birth, guardians, class history; staff records and teaching loads). See [Roadmap](#roadmap).
+> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). 3. School branding & academic structure (logo, colours, settings; academic years with the Liberian 2 × (3 periods + exam) calendar; grade levels Nursery–12; subjects; classes, subject teachers, enrolment; parent ↔ child links; setup checklist). 4. Assessments & grades (weighted categories, marking-period and exam grades, Liberian semester averages, submit → review → publish, student & parent results). 5. Report cards (issued snapshots with class rank, homeroom remarks, promotion, A4 printing) and group password resets. 6. Attendance (daily class registers, school overview, class summaries, attendance on report cards). 7. Students & Teachers directories (school records: admission numbers, date of birth, guardians, class history; staff records and teaching loads). 8. Announcements (audiences, scheduling, pinning, read receipts, notification bell). See [Roadmap](#roadmap).
 
 ---
 
@@ -35,6 +35,7 @@ app/
     report-cards/      Issue, remarks, promotion (staff); issued cards (students, parents)
     students/          Student directory and school records (admins; teachers see their own students)
     teachers/          Staff directory, teaching loads and staff records (admins)
+    announcements/     Post (admins: any audience; teachers: their classes), read, edit; unread badges
     attendance/        Daily registers (homeroom/admin), school day overview, class summaries; own record (students, parents)
   print/               Bare A4 layouts for printing (report cards)
   platform/            Super-admin area (server-side privileged access)
@@ -51,7 +52,7 @@ lib/grades/            Pure calculations: compute.ts (grades & averages), report
 types/database.ts      Generated Supabase types
 supabase/
   migrations/          Reproducible schema, RLS and audit migrations
-  tests/               tenant_isolation.sql (37), user_management.sql (28), academics.sql (48), grades.sql (39), report_cards.sql (27), attendance.sql (23), people_profiles.sql (19) — self-cleaning security tests
+  tests/               tenant_isolation.sql (37), user_management.sql (28), academics.sql (48), grades.sql (39), report_cards.sql (27), attendance.sql (23), people_profiles.sql (19), announcements.sql (27) — self-cleaning security tests
   snippets/            attach_profile.sql — provision users
   seed.sql             Local-only demo data ("Demo School")
 proxy.ts               Session refresh + optimistic route protection
@@ -136,6 +137,7 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_report_cards.sql` | Issued report cards (jsonb snapshot, average, rank), homeroom remarks, promotion overrides; RLS and scope triggers |
 | `…_promotion_decision_message.sql` | Clearer validation message |
 | `…_student_staff_profiles.sql` | Student records (admission number, DOB, gender, address, emergency contact) and staff records; admin-only writes; need-to-know reads |
+| `…_announcements.sql` | Announcements (everyone / staff / students / parents / one class), scheduling, expiry, pinning, read receipts; RLS by audience |
 | `…_attendance.sql` | Attendance registers and marks; RLS (homeroom/admin write, class teachers read, self/parent read); date and enrolment checks |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
@@ -162,7 +164,7 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) and `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) work the same way.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) and `supabase/tests/announcements.sql` (27 checks: who may post to which audience, who sees what, scheduling/expiry, read receipts) work the same way.
 
 ## Deployment (Vercel)
 
@@ -184,7 +186,7 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 4. ~~Assessments, examinations and grades~~ ✅
 5. ~~Report cards (printable, per student and per class)~~ ✅
 6. ~~Attendance~~ ✅
-7. Announcements and notifications.
+7. ~~Announcements and notifications~~ ✅
 8. Parent portal.
 9. Reports and analytics.
 10. University support (faculties, programmes, credit hours, GPA).
