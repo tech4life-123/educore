@@ -207,13 +207,9 @@ export default async function ClassPage({ params, searchParams }: PageProps<"/cl
                 <TR key={row.enrollmentId}>
                   <TD className="font-medium">
                     {row.student ? (
-                      isAdmin ? (
-                        <Link href={`/users/${row.student.id}`} className="text-brand underline-offset-4 hover:underline">
-                          {fullName(row.student)}
-                        </Link>
-                      ) : (
-                        fullName(row.student)
-                      )
+                      <Link href={`/students/${row.student.id}`} className="text-brand underline-offset-4 hover:underline">
+                        {fullName(row.student)}
+                      </Link>
                     ) : (
                       "—"
                     )}

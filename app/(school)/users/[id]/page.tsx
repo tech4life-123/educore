@@ -44,7 +44,20 @@ export default async function UserDetailPage({ params }: PageProps<"/users/[id]"
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">{name}</h1>
           <StatusBadge status={member.status} />
         </div>
-        <p className="mt-1 text-sm text-muted">{ROLE_LABELS[member.role]}</p>
+        <p className="mt-1 text-sm text-muted">
+          {ROLE_LABELS[member.role]}
+          {member.role === "student" || member.role === "teacher" || member.role === "school_admin" ? (
+            <>
+              {" · "}
+              <Link
+                href={member.role === "student" ? `/students/${member.id}` : `/teachers/${member.id}`}
+                className="font-medium text-brand underline-offset-4 hover:underline print:hidden"
+              >
+                {member.role === "student" ? "Student record" : "Staff record"}
+              </Link>
+            </>
+          ) : null}
+        </p>
       </div>
 
       <Card aria-labelledby="details-title">

@@ -207,7 +207,17 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 
 **Rate.** The attendance rate is (present + late) ÷ (present + late + absent); excused days don't count against the student. The rate is compared with `school_settings.attendance_threshold`. When report cards are issued, each semester's attendance is added to the snapshot.
 
-## 14. Security decisions log
+## 14. Students & teachers (milestone 7)
+
+`student_profiles` and `staff_profiles` hold school-record details, one row per person. Admins write them. Triggers make sure a student record belongs to a student and a staff record to a teacher or admin. Admission and employee numbers are unique per school, case-insensitively.
+
+Personal data follows need-to-know, enforced by RLS:
+- **Student details** are visible to admins, to teachers who teach one of the student's classes (`private.teaches_student`), to the student, and to linked parents.
+- **Staff details** are visible to admins and to the staff member themself.
+
+The Students directory shows admins everyone. It shows a teacher only the students of classes they teach. "Assign admission numbers" numbers any unnumbered students `<year>-0001`, `-0002`, … continuing after the highest existing number.
+
+## 15. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -237,3 +247,4 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 | 24 | Report cards stored as issued snapshots, readable per student | Ranks can be shown to families without exposing classmates' scores. |
 | 25 | Bulk reset re-validates targets server-side at confirm time | A tampered or stale confirmation list can't reset accounts outside the chosen group. |
 | 26 | Attendance class/date derived from the register by trigger | A mark can never be filed against another class or day than its register. |
+| 27 | Student personal details readable only by admins, the student's teachers, the student and linked parents | Dates of birth, addresses and emergency contacts are need-to-know. |
