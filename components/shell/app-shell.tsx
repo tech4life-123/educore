@@ -51,7 +51,7 @@ export function AppShell({
         Skip to main content
       </a>
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface lg:flex print:!hidden">
         <Link href={identity.homeHref} className="flex items-center gap-3 border-b border-border px-4 py-4">
           {identity.brand}
         </Link>
@@ -61,8 +61,8 @@ export function AppShell({
         <p className="border-t border-border px-4 py-3 text-xs text-subtle">Powered by EduCore</p>
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-surface/95 px-4 backdrop-blur sm:px-6">
+      <div className="lg:pl-64 print:!pl-0">
+        <header className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-3 border-b border-border bg-surface/95 px-4 backdrop-blur sm:px-6">
           <MobileNav items={navigation} header={<span className="flex items-center gap-3">{identity.brand}</span>} />
           <div className="min-w-0 flex-1 lg:hidden">
             <Link href={identity.homeHref} className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-8 print:max-w-none print:p-0">
           {children}
         </main>
       </div>

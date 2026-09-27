@@ -235,7 +235,15 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 
 **Statistics.** `platform_school_statistics()` returns one row of counts per school — never individual records: active students (girls / boys), enrolments, teachers, administrators, classes, attendance marks in the current year, and students passing on their latest issued report card of the year. The app sums counts and recomputes rates (so larger schools weigh more), groups by county, and offers a CSV export (formula-safe) and an A4 printable report. It is called with the super admin's own session, so the database, not the app, decides who may run it.
 
-## 17. Security decisions log
+## 17. Reports & analytics (milestone 10)
+
+`/reports` (school admins, capability `reports.view`) shows the current year: headline figures, attendance by month against the school's target, results by class and by subject, girls vs boys, and a list of students who need attention (failing the semester, or below the attendance target after at least 5 school days). A CSV gives one row per student.
+
+**Where the numbers come from.** Attendance is counted in the database by `report_attendance_by_month` / `report_attendance_by_student`. They are SECURITY INVOKER, so they run with the caller's rights and RLS decides which marks are counted; they add no access (tests R04–R08). Results come from the report cards the school has issued, the same published figures parents and students see, so the report never shows unpublished grades. The maths lives in `lib/reports.ts` (pure, unit-tested): a subject's figure is its semester average, or its latest published period while the semester is running; passing uses the rounded result, as on report cards.
+
+**Printing.** The app shell hides its sidebar and top bar when printing, so any page prints as a clean document.
+
+## 18. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -268,3 +276,5 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 | 27 | Student personal details readable only by admins, the student's teachers, the student and linked parents | Dates of birth, addresses and emergency contacts are need-to-know. |
 | 28 | Platform statistics are aggregates computed in a super-admin-only database function | The Ministry view never needs a student's record; returning only counts keeps personal data inside each school. |
 | 29 | School status changed only through `platform_set_school_status`, which re-checks the caller's role | A forged request to the app can't suspend or archive a school; the audit trail names who did it. |
+| 30 | School report aggregates are SECURITY INVOKER | Counting in the database for speed must not become a way around RLS; the caller only ever counts rows they could already read. |
+| 31 | School reports use issued report cards, not raw scores | Leaders see the same published figures families see; unpublished grades never leak into a report or export. |

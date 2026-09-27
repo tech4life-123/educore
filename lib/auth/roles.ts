@@ -21,11 +21,11 @@ export function homePathForRole(role: AppRole): "/platform" | "/dashboard" {
  * guards; the database enforces the same rules independently through RLS and
  * column privileges, so a UI bug can never widen access.
  */
-export type Capability = "school.manage" | "users.manage" | "profiles.view_school" | "audit.view" | "classes.view" | "grades.enter";
+export type Capability = "school.manage" | "users.manage" | "profiles.view_school" | "audit.view" | "classes.view" | "grades.enter" | "reports.view";
 
 const CAPABILITIES: Record<AppRole, readonly Capability[]> = {
   super_admin: [],
-  school_admin: ["school.manage", "users.manage", "profiles.view_school", "audit.view", "classes.view", "grades.enter"],
+  school_admin: ["school.manage", "users.manage", "profiles.view_school", "audit.view", "classes.view", "grades.enter", "reports.view"],
   teacher: ["profiles.view_school", "classes.view", "grades.enter"],
   student: [],
   parent: [],

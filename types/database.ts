@@ -1654,6 +1654,27 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["school_status"]
       }
+      report_attendance_by_month: {
+        Args: { p_year_id: string }
+        Returns: {
+          absent: number
+          class_id: string
+          excused: number
+          late: number
+          month: string
+          present: number
+        }[]
+      }
+      report_attendance_by_student: {
+        Args: { p_year_id: string }
+        Returns: {
+          absent: number
+          excused: number
+          late: number
+          present: number
+          student_id: string
+        }[]
+      }
       require_password_change: {
         Args: { p_profile_id: string }
         Returns: string
