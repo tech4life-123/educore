@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -24,9 +25,12 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Platform overview</h1>
-        <p className="mt-1 text-sm text-muted">Welcome, {profile.first_name}. Schools running on this EduCore deployment.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Platform overview</h1>
+          <p className="mt-1 text-sm text-muted">Welcome, {profile.first_name}. Schools running on this EduCore deployment.</p>
+        </div>
+        <ButtonLink href="/platform/schools/new">Add school</ButtonLink>
       </div>
 
       {result.status === "not_configured" ? (
@@ -53,7 +57,8 @@ export default async function PlatformPage() {
             <EmptyState
               icon="classes"
               title="No schools yet"
-              description="Schools are provisioned by platform operators. School onboarding arrives in a later milestone."
+              description="Add the first school and its administrator to get started."
+              action={<ButtonLink href="/platform/schools/new">Add school</ButtonLink>}
             />
           ) : (
             <Table caption="Schools on this platform">
