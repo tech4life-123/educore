@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { SchoolSettings } from "./auth";
+import type { School, SchoolSettings } from "./auth";
 
 export type SchoolSettingsView = Pick<
   SchoolSettings,
@@ -24,6 +24,42 @@ export const getSchoolSettings = cache(async (schoolId: string): Promise<SchoolS
   if (error) {
     console.error("[school] settings lookup failed", error.code);
     throw new Error("Unable to load school settings");
+  }
+  return data;
+});
+
+export type SchoolProfileView = Pick<
+  School,
+  | "id"
+  | "name"
+  | "code"
+  | "motto"
+  | "address"
+  | "city"
+  | "county"
+  | "country"
+  | "phone"
+  | "email"
+  | "website"
+  | "logo_url"
+  | "primary_color"
+  | "secondary_color"
+>;
+
+/** Editable profile of the caller's own school (RLS: own school only). */
+export const getSchoolProfile = cache(async (schoolId: string): Promise<SchoolProfileView | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("schools")
+    .select(
+      "id, name, code, motto, address, city, county, country, phone, email, website, logo_url, primary_color, secondary_color",
+    )
+    .eq("id", schoolId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[school] profile lookup failed", error.code);
+    throw new Error("Unable to load the school profile");
   }
   return data;
 });

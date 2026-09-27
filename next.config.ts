@@ -19,6 +19,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      // School logos may be up to 1 MB (enforced again by the storage bucket).
+      bodySizeLimit: "2mb",
+    },
+  },
   images: {
     // School logos are served from this project's Supabase Storage only.
     remotePatterns: supabaseHost
