@@ -738,6 +738,10 @@ export type Database = {
         }
         Returns: string
       }
+      move_grade_level: {
+        Args: { p_direction: string; p_grade_id: string }
+        Returns: undefined
+      }
       platform_create_school: {
         Args: {
           p_city: string

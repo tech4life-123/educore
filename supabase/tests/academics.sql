@@ -1,5 +1,5 @@
 -- =============================================================================
--- EduCore — Academic structure, parent links & logo storage tests (migration 006)
+-- EduCore — Academic structure, parent links & logo storage tests (migrations 006–008)
 -- Same harness as tenant_isolation.sql: runs each case as the real role with a
 -- forged JWT sub; everything is rolled back. Run as postgres:
 --   psql "$DATABASE_URL" -f supabase/tests/academics.sql
@@ -51,6 +51,11 @@ begin
       ('S02','17 subjects created',                             'postgres','count', format('select 1 from public.subjects where school_id = %L', a), 'rows=17'),
       ('S03','Running it again adds none',                      'admin_a', 'count', 'select 1 where public.add_standard_subjects() = 0', 'rows=1'),
       ('S04','Student adds subjects',                           'student_a1','exec','select public.add_standard_subjects()', 'denied'),
+      ('M01','Admin A moves Grade 10 up one place',              'admin_a', 'exec',  format($q$select public.move_grade_level((select id from public.grade_levels where school_id = %L and name = 'Grade 10'), 'up')$q$, a), 'affected=1'),
+      ('M02','Grade 10 and Grade 9 swapped positions',           'postgres','count', format($q$select 1 from public.grade_levels g10, public.grade_levels g9 where g10.school_id = %1$L and g9.school_id = %1$L and g10.name = 'Grade 10' and g9.name = 'Grade 9' and g10.sequence = 12 and g9.sequence = 13$q$, a), 'rows=1'),
+      ('M03','Teacher reorders grade levels',                    'teacher_a','exec', format($q$select public.move_grade_level((select id from public.grade_levels where school_id = %L and name = 'Grade 10'), 'down')$q$, a), 'denied'),
+      ('M04','School B admin reorders School A''s grade',        'admin_b', 'exec',  format($q$select public.move_grade_level(%L::uuid, 'down')$q$, (select id from public.grade_levels where school_id = a and name = 'Grade 10')), 'denied'),
+      ('M05','School A order unchanged by the denied attempts',  'postgres','count', format($q$select 1 from public.grade_levels where school_id = %L and name = 'Grade 10' and sequence = 12$q$, a), 'rows=1'),
       ('C01','Admin A creates class 10A (control)',             'admin_a', 'exec',  format($q$insert into public.classes (id, school_id, academic_year_id, grade_level_id, name, homeroom_teacher_id) select %L, %L, y.id, g.id, '10A', %L from public.academic_years y, public.grade_levels g where y.school_id = %L and g.school_id = %L and g.name = 'Grade 10'$q$, class_a, a, p_tch_a, a, a), 'affected=1'),
       ('C02','Admin A creates class 10B (control)',             'admin_a', 'exec',  format($q$insert into public.classes (id, school_id, academic_year_id, grade_level_id, name) select %L, %L, y.id, g.id, '10B' from public.academic_years y, public.grade_levels g where y.school_id = %L and g.school_id = %L and g.name = 'Grade 10'$q$, class_a2, a, a, a), 'affected=1'),
       ('C03','Class using School B''s grade level',             'admin_a', 'exec',  format($q$insert into public.classes (school_id, academic_year_id, grade_level_id, name) select %L, y.id, %L, 'X1' from public.academic_years y where y.school_id = %L$q$, a, g_b, a), 'denied'),
