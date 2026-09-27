@@ -50,6 +50,9 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
           <p className="mt-1 text-sm text-muted">Everyone who can sign in to {school.name}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/users/reset" variant="secondary">
+            Reset passwords
+          </ButtonLink>
           <ButtonLink href="/users/import" variant="secondary">
             Import from spreadsheet
           </ButtonLink>

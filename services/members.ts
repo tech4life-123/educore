@@ -296,3 +296,94 @@ export async function existingUsernames(schoolId: string, usernames: string[]): 
   if (error) throw new Error("Unable to check usernames");
   return new Set((data ?? []).map((r) => r.username).filter((u): u is string => Boolean(u)));
 }
+
+// ---------------------------------------------------------------------------
+// Bulk password reset
+// ---------------------------------------------------------------------------
+
+export const BULK_RESET_MAX = 200;
+
+export interface ResetTargetQuery {
+  schoolId: string;
+  role: MemberRole;
+  /** Students only: limit to one class. */
+  classId?: string;
+  /** Only accounts that have not yet chosen their own password. */
+  onlyTemporary: boolean;
+  /** Never include the admin doing the reset. */
+  excludeProfileId: string;
+}
+
+export type ResetTarget = Pick<MemberRow, "id" | "first_name" | "middle_name" | "last_name" | "role" | "username" | "email">;
+
+/** Active accounts matching the filters (RLS-bound: own school only). */
+export async function findResetTargets(query: ResetTargetQuery): Promise<ResetTarget[]> {
+  const supabase = await createClient();
+  let request = supabase
+    .from("profiles")
+    .select("id, first_name, middle_name, last_name, role, username, email")
+    .eq("school_id", query.schoolId)
+    .eq("role", query.role)
+    .eq("status", "active")
+    .neq("id", query.excludeProfileId)
+    .order("last_name")
+    .order("first_name")
+    .limit(BULK_RESET_MAX + 1);
+  if (query.onlyTemporary) request = request.eq("must_change_password", true);
+
+  if (query.classId) {
+    const { data: enrolled, error } = await supabase
+      .from("enrollments")
+      .select("student_id")
+      .eq("school_id", query.schoolId)
+      .eq("class_id", query.classId);
+    if (error) throw new Error("Unable to load the class");
+    const ids = enrolled.map((e) => e.student_id);
+    if (ids.length === 0) return [];
+    request = request.in("id", ids);
+  }
+
+  const { data, error } = await request;
+  if (error) {
+    console.error("[members] reset targets failed", error.code);
+    throw new Error("Unable to load users");
+  }
+  return data;
+}
+
+export interface BulkResetResult {
+  profileId: string;
+  fullName: string;
+  role: MemberRole;
+  loginId?: string;
+  temporaryPassword?: string;
+  error?: string;
+}
+
+/** Reset each account's password (the database authorizes every one). */
+export async function bulkResetPasswords(targets: ResetTarget[], schoolCode: string): Promise<BulkResetResult[]> {
+  const results: BulkResetResult[] = [];
+  const queue = [...targets];
+  const CONCURRENCY = 4;
+
+  async function worker() {
+    for (let t = queue.shift(); t; t = queue.shift()) {
+      const fullName = [t.first_name, t.middle_name, t.last_name].filter(Boolean).join(" ");
+      try {
+        const temporaryPassword = await resetMemberPassword(t.id);
+        results.push({ profileId: t.id, fullName, role: t.role as MemberRole, loginId: displayLoginId(t, schoolCode), temporaryPassword });
+      } catch (e) {
+        results.push({
+          profileId: t.id,
+          fullName,
+          role: t.role as MemberRole,
+          error: e instanceof MemberError ? e.message : "Couldn’t reset this password.",
+        });
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+  const order = new Map(targets.map((t, i) => [t.id, i]));
+  return results.sort((a, b) => (order.get(a.profileId) ?? 0) - (order.get(b.profileId) ?? 0));
+}

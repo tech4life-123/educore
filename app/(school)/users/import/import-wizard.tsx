@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { csvCell } from "@/lib/csv";
+import { CredentialSlips } from "@/components/users/credential-slips";
 import { importAction, type ImportState } from "./actions";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -38,9 +38,6 @@ function ImportWizardInner({ onReset, schoolName, schoolCode, siteUrl }: { schoo
   if (state.step === "done" && state.results) {
     const ok = state.results.filter((r) => !r.error);
     const failed = state.results.filter((r) => r.error);
-    const credentialsCsv =
-      "name,role,login,temporary_password\n" +
-      ok.map((r) => [r.fullName, ROLE_LABEL[r.role], r.loginId!, r.temporaryPassword!].map(csvCell).join(",")).join("\n");
 
     return (
       <div className="space-y-6">
@@ -49,30 +46,18 @@ function ImportWizardInner({ onReset, schoolName, schoolCode, siteUrl }: { schoo
         </Alert>
 
         {ok.length ? (
-          <>
-            <Alert tone="warning" title="Save the login details now">
-              The temporary passwords are shown only on this page. Download or print them before leaving.
-            </Alert>
-            <div className="flex flex-wrap gap-2 print:hidden">
-              <Button onClick={() => download(`${schoolCode}-logins.csv`, credentialsCsv)}>Download logins (CSV)</Button>
-              <Button variant="secondary" onClick={() => window.print()}>
-                Print login slips
-              </Button>
-            </div>
-            <div className="print-area space-y-0">
-              <div className="grid gap-3 sm:grid-cols-2 print:grid-cols-2">
-                {ok.map((r) => (
-                  <div key={r.line} className="break-inside-avoid rounded-lg border border-dashed border-border p-3 text-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{schoolName}</p>
-                    <p className="font-semibold text-foreground">{r.fullName}</p>
-                    <p className="text-xs text-muted">{ROLE_LABEL[r.role]} · {siteUrl}/login</p>
-                    <p className="mt-2 font-mono text-foreground">Login: {r.loginId}</p>
-                    <p className="font-mono text-foreground">Password: {r.temporaryPassword}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+          <CredentialSlips
+            schoolName={schoolName}
+            siteUrl={siteUrl}
+            filename={`${schoolCode}-logins.csv`}
+            slips={ok.map((r) => ({
+              key: String(r.line),
+              fullName: r.fullName,
+              roleLabel: ROLE_LABEL[r.role],
+              loginId: r.loginId!,
+              temporaryPassword: r.temporaryPassword!,
+            }))}
+          />
         ) : null}
 
         {failed.length ? (
