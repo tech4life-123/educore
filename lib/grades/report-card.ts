@@ -36,6 +36,8 @@ export interface CardTerm {
   name: string;
   sequence: number;
   periods: CardPeriod[];
+  startsOn?: string | null;
+  endsOn?: string | null;
 }
 export interface CardSubjectInput {
   classSubjectId: string;
@@ -73,6 +75,9 @@ export interface ReportCardData {
   promotion?: "promoted" | "not_promoted" | null;
   passingScore: number;
   examWeight: number;
+  /** Attendance over the semester's dates (added when issuing). */
+  attendance?: { present: number; absent: number; late: number; excused: number; days: number; rate: number | null };
+  attendanceThreshold?: number;
 }
 
 const round2 = (n: number | null) => (n === null ? null : Math.round(n * 100) / 100);

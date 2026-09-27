@@ -139,7 +139,7 @@ export function ReportCard({
       ) : null}
 
       {/* Standing */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className={cn("mt-4 grid gap-3", data.attendance ? "grid-cols-2 sm:grid-cols-4" : "sm:grid-cols-3")}>
         <Box label={`Rank (${data.rank.basis})`}>
           {data.rank.position ? `${ordinal(data.rank.position)} of ${data.rank.of}` : "—"}
         </Box>
@@ -161,6 +161,16 @@ export function ReportCard({
         ) : (
           <Box label="Semester average">{formatGrade(data.overall.semester)}</Box>
         )}
+        {data.attendance ? (
+          <Box label="Attendance">
+            <span className={cn(data.attendance.rate !== null && data.attendanceThreshold !== undefined && Math.round(data.attendance.rate) < data.attendanceThreshold && "text-red-700")}>
+              {data.attendance.rate === null ? "—" : `${Math.round(data.attendance.rate)}%`}
+            </span>
+            <span className="block text-[11px] font-normal text-neutral-600">
+              Absent {data.attendance.absent} · Late {data.attendance.late} · Excused {data.attendance.excused}
+            </span>
+          </Box>
+        ) : null}
       </div>
 
       {/* Remark */}

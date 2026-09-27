@@ -5,7 +5,9 @@ import { friendlyDbError, type ActionState } from "@/lib/action-state";
 import { cardAverage } from "@/lib/grades/report-card";
 import { createClient } from "@/lib/supabase/server";
 import { requireCapability } from "@/services/auth";
+import { getAttendanceSummaries } from "@/services/attendance";
 import { buildClassReportCards, getClassContext } from "@/services/report-cards";
+import { getSchoolSettings } from "@/services/school";
 
 /**
  * Report card actions. Issuing is admin-only (RLS); remarks may be written by
@@ -37,6 +39,23 @@ export async function issueReportCards(_prev: ActionState, formData: FormData): 
   try {
     const cards = await buildClassReportCards(school.id, school.code, ctx, termId);
     if (cards.size === 0) return bad("There are no active students in this class.");
+
+    // Attendance over the semester's dates (up to today).
+    const from = term.startsOn ?? ctx.yearStartsOn;
+    const until = term.endsOn ?? ctx.yearEndsOn;
+    if (from && until) {
+      const [attendance, settings] = await Promise.all([
+        getAttendanceSummaries(school.id, [...cards.keys()], from, until),
+        getSchoolSettings(school.id),
+      ]);
+      for (const [studentId, card] of cards) {
+        const a = attendance.get(studentId);
+        if (a && a.days > 0) {
+          card.attendance = { ...a, rate: a.rate === null ? null : Math.round(a.rate * 100) / 100 };
+          card.attendanceThreshold = Number(settings?.attendance_threshold ?? 75);
+        }
+      }
+    }
     const supabase = await createClient();
     const rows = [...cards.entries()].map(([studentId, data]) => {
       const avg = cardAverage(data);

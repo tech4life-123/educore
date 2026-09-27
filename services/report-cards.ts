@@ -26,6 +26,8 @@ export interface ClassContext {
   homeroomTeacherId: string | null;
   gradeName: string | null;
   year: { id: string; name: string };
+  yearStartsOn: string | null;
+  yearEndsOn: string | null;
   terms: CardTerm[];
 }
 
@@ -48,10 +50,14 @@ export const getClassContext = cache(async (schoolId: string, classId: string): 
     homeroomTeacherId: cls.homeroom_teacher_id,
     gradeName: cls.grade?.name ?? null,
     year: cls.year,
+    yearStartsOn: year?.starts_on ?? null,
+    yearEndsOn: year?.ends_on ?? null,
     terms: (year?.academic_terms ?? []).map((t) => ({
       id: t.id,
       name: t.name,
       sequence: t.sequence,
+      startsOn: t.starts_on,
+      endsOn: t.ends_on,
       periods: t.grading_periods.map((p) => ({ id: p.id, name: p.name, kind: p.kind, published: Boolean(published[p.id]) })),
     })),
   };
