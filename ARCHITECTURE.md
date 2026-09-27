@@ -148,7 +148,29 @@ These functions are `SECURITY DEFINER` with an empty `search_path`, and they der
 
 **Atomic setup RPCs** (`create_academic_year`, `set_current_academic_year`, `add_standard_subjects`, `move_grade_level`) are `SECURITY INVOKER`. They run with the caller's rights, so RLS still decides, and they re-check that the caller is a school admin.
 
-## 11. Security decisions log
+## 11. Assessments & grades (milestone 4)
+
+**Model.** `assessment_categories` hold the school's weighted categories (default Tests 40, Quizzes 20, Assignments 20, Projects 10, Class participation 10). `assessments` belong to one class subject and one grading period. `assessment_scores` store one student's score, or mark them excused. `grade_submissions` record a teacher handing a class subject's period in for review. `grading_periods.published_at` marks a period as released. `school_settings.exam_weight` defaults to 50%, which is the Liberian standard.
+
+**Calculation** (`lib/grades/compute.ts`, pure and unit-checked):
+- **Marking-period grade:** the average of the category percentages, weighted by category. Only categories with scored work count.
+- **Exam grade:** points earned ÷ points possible.
+- **Semester average:** the average of the rounded period grades × (1 − w), plus the rounded exam × w.
+- **Yearly average:** the mean of the semester averages.
+- **Scores that don't count:** missing scores are left out as not graded yet, and so are excused scores. A score of 0 counts.
+
+Grades are computed on read from raw scores, never stored, so a correction can't leave a stale average behind.
+
+**Who may do what** (database-enforced):
+- **Entering grades:** `private.can_grade()` allows the teacher assigned to that class subject, or a school admin. Other teachers can't read or write that gradebook.
+- **Seeing scores:** students see their own and parents their linked children's, only once the period is published (`is_self_or_child` + `assessment_published`).
+- **Submission lock:** once a teacher submits, the triggers lock that class subject's period for the teacher. An admin can still correct scores or return the submission.
+- **Publish lock:** publishing locks the period for everyone until it is unpublished.
+- **Score checks:** triggers cap scores at the maximum and reject students who aren't enrolled in the class. They also stop a period's assessments from pointing at another academic year, and they refuse to remove a graded student from a class.
+
+**Publishing** is an admin-only RPC (`set_grading_period_published`, `SECURITY INVOKER`) that stamps who published and when.
+
+## 12. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -172,3 +194,6 @@ These functions are `SECURITY DEFINER` with an empty `search_path`, and they der
 | 18 | Role-check triggers on classes, class subjects, enrolments, guardian links | A student can't be made a teacher, a parent can't be enrolled, etc. — even by an admin. |
 | 19 | Logo uploads: bucket MIME/size limits + server-side magic-byte check, no SVG, per-school folder policies | Prevents script-bearing images and cross-school overwrites. |
 | 20 | Academic writes use the caller's session, never the service role | The database alone decides; there is no privileged path to misuse. |
+| 21 | Scores visible to students/parents only after publishing, enforced in RLS | Draft or disputed grades never leak, even through the REST API. |
+| 22 | Submission/publish locks in triggers, not UI | A stale form or crafted request can't alter reviewed or released grades. |
+| 23 | Grades computed from raw scores on read | One source of truth; corrections propagate everywhere immediately. |
