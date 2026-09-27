@@ -109,6 +109,183 @@ export type Database = {
           },
         ]
       }
+      assessment_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          school_id: string
+          sequence: number
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          school_id: string
+          sequence?: number
+          updated_at?: string
+          weight: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          school_id?: string
+          sequence?: number
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_scores: {
+        Row: {
+          assessment_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          is_excused: boolean
+          school_id: string
+          score: number | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          is_excused?: boolean
+          school_id: string
+          score?: number | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          is_excused?: boolean
+          school_id?: string
+          score?: number | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_scores_assessment_fkey"
+            columns: ["assessment_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "assessment_scores_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_scores_student_fkey"
+            columns: ["student_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          assessed_on: string | null
+          category_id: string | null
+          class_subject_id: string
+          created_at: string
+          created_by: string | null
+          grading_period_id: string
+          id: string
+          max_score: number
+          school_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assessed_on?: string | null
+          category_id?: string | null
+          class_subject_id: string
+          created_at?: string
+          created_by?: string | null
+          grading_period_id: string
+          id?: string
+          max_score: number
+          school_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assessed_on?: string | null
+          category_id?: string | null
+          class_subject_id?: string
+          created_at?: string
+          created_by?: string | null
+          grading_period_id?: string
+          id?: string
+          max_score?: number
+          school_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_category_fkey"
+            columns: ["category_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_categories"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "assessments_class_subject_fkey"
+            columns: ["class_subject_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "class_subjects"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "assessments_created_by_fkey"
+            columns: ["created_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "assessments_period_fkey"
+            columns: ["grading_period_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "grading_periods"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "assessments_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -380,6 +557,68 @@ export type Database = {
           },
         ]
       }
+      grade_submissions: {
+        Row: {
+          class_subject_id: string
+          created_at: string
+          grading_period_id: string
+          id: string
+          school_id: string
+          submitted_at: string
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_subject_id: string
+          created_at?: string
+          grading_period_id: string
+          id?: string
+          school_id: string
+          submitted_at?: string
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_subject_id?: string
+          created_at?: string
+          grading_period_id?: string
+          id?: string
+          school_id?: string
+          submitted_at?: string
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_submissions_by_fkey"
+            columns: ["submitted_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_class_subject_fkey"
+            columns: ["class_subject_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "class_subjects"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_period_fkey"
+            columns: ["grading_period_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "grading_periods"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grading_periods: {
         Row: {
           created_at: string
@@ -387,6 +626,8 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["term_period_kind"]
           name: string
+          published_at: string | null
+          published_by: string | null
           school_id: string
           sequence: number
           starts_on: string | null
@@ -399,6 +640,8 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["term_period_kind"]
           name: string
+          published_at?: string | null
+          published_by?: string | null
           school_id: string
           sequence: number
           starts_on?: string | null
@@ -411,6 +654,8 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["term_period_kind"]
           name?: string
+          published_at?: string | null
+          published_by?: string | null
           school_id?: string
           sequence?: number
           starts_on?: string | null
@@ -418,6 +663,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "grading_periods_published_by_fkey"
+            columns: ["published_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
           {
             foreignKeyName: "grading_periods_school_id_fkey"
             columns: ["school_id"]
@@ -558,6 +810,7 @@ export type Database = {
           allow_student_registration: boolean
           attendance_threshold: number
           created_at: string
+          exam_weight: number
           id: string
           passing_score: number
           school_id: string
@@ -569,6 +822,7 @@ export type Database = {
           allow_student_registration?: boolean
           attendance_threshold?: number
           created_at?: string
+          exam_weight?: number
           id?: string
           passing_score?: number
           school_id: string
@@ -580,6 +834,7 @@ export type Database = {
           allow_student_registration?: boolean
           attendance_threshold?: number
           created_at?: string
+          exam_weight?: number
           id?: string
           passing_score?: number
           school_id?: string
@@ -762,6 +1017,10 @@ export type Database = {
       }
       set_current_academic_year: {
         Args: { p_year_id: string }
+        Returns: undefined
+      }
+      set_grading_period_published: {
+        Args: { p_period_id: string; p_published: boolean }
         Returns: undefined
       }
       set_member_status: {
