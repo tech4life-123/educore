@@ -19,3 +19,16 @@ export function schoolTypeLabel(type: string): string {
 export function locationLine(school: { city: string | null; county: string | null; country: string }): string {
   return [school.city, school.county, school.country].filter(Boolean).join(", ");
 }
+
+/** "2026-09-01" → "1 Sep 2026". Dates are calendar dates; format in UTC so they never shift by a day. */
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+export function dateRange(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start && !end) return "Dates not set";
+  return `${formatDate(start)} – ${formatDate(end)}`;
+}
