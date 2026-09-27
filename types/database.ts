@@ -17,6 +17,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_code: string | null
+          id: string
+          input_tokens: number
+          kind: string
+          model: string
+          output_tokens: number
+          profile_id: string
+          provider: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string | null
+          status: string
+          tool_calls: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          id?: string
+          input_tokens?: number
+          kind: string
+          model: string
+          output_tokens?: number
+          profile_id: string
+          provider: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          status: string
+          tool_calls?: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          id?: string
+          input_tokens?: number
+          kind?: string
+          model?: string
+          output_tokens?: number
+          profile_id?: string
+          provider?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          status?: string
+          tool_calls?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academic_terms: {
         Row: {
           academic_year_id: string

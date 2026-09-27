@@ -3,19 +3,24 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { schoolTypeLabel } from "@/lib/format";
 import { requireSuperAdmin } from "@/services/auth";
 import { listSchoolsForPlatform } from "@/services/platform";
 import { STATUS_LABEL, STATUS_TONE } from "@/lib/platform-stats";
+import { ActionForm } from "@/components/ui/action-form";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { getAiConfig } from "@/lib/ai/config";
+import { testAiConnection } from "./ai-actions";
 
 export const metadata: Metadata = { title: "Platform" };
 
 export default async function PlatformPage() {
   const { profile } = await requireSuperAdmin();
   const result = await listSchoolsForPlatform();
+  const ai = getAiConfig();
 
   return (
     <div className="space-y-6">
@@ -91,6 +96,35 @@ export default async function PlatformPage() {
           )}
         </Card>
       ) : null}
+
+      <Card aria-labelledby="ai-title">
+        <CardHeader
+          titleId="ai-title"
+          title="EduCore AI"
+          description={
+            ai.enabled
+              ? `On · ${ai.provider} · ${ai.model} · up to ${ai.maxOutputTokens} tokens per reply`
+              : `Off · ${ai.disabledReason}`
+          }
+          action={<Badge tone={ai.enabled ? "success" : "neutral"}>{ai.enabled ? "Configured" : "Not configured"}</Badge>}
+        />
+        <CardBody className="space-y-3 text-sm text-muted">
+          <p>
+            Limits: {ai.limits.userPerMinute} questions per person per minute, {ai.limits.userPerDay} per person per day,{" "}
+            {ai.limits.schoolPerDay} per school per day. Only request details (who, when, model, tokens) are logged — never
+            questions or answers.
+          </p>
+          {ai.enabled ? (
+            <ActionForm action={testAiConnection} compact>
+              <SubmitButton size="sm" variant="secondary" loadingText="Testing…">
+                Test connection
+              </SubmitButton>
+            </ActionForm>
+          ) : (
+            <p>Set the AI environment variables on the server (see README, “EduCore AI”) and redeploy.</p>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

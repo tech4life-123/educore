@@ -249,7 +249,31 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 
 The generator lives in the `demo` schema: not exposed by the API, no grants to `anon`/`authenticated`, runnable only by the database owner. Generated people have Auth accounts without a password, so they can't sign in until a school administrator gives one a temporary password. Report cards are computed with exactly the app's rules; one student's 72 period grades were recomputed with `lib/grades/compute.ts` and matched. Bulk rows are written with triggers off (`session_replication_role = replica`) to keep fictional rows out of the audit log, so `supabase/demo/verify.sql` re-checks every foreign key and trigger rule afterwards. `demo.remove_school` refuses any school without `is_demo`.
 
-## 19. Security decisions log
+## 19. EduCore AI (AI-1: foundation)
+
+```
+Browser (same origin, signed in)
+   │  POST /api/ai/chat  {messages}
+   ▼
+lib/ai/handler.ts   origin + JSON → identity (getAuthContext) → configured → input limits → usage limits
+   │
+lib/ai/prompt.ts    fixed system prompt: role + school name only, safety rules
+   │
+lib/ai/types.ts     AiProvider interface  ←  providers/anthropic.ts (fetch + SSE) | providers/mock.ts
+   │
+   ▼  (from AI-4) EduCore AI tools — authorised, RLS-bound, per role
+Supabase
+```
+
+- **Provider-neutral.** The app talks to `AiProvider` only; swapping providers means adding one file under `lib/ai/providers`. The Anthropic provider uses `fetch` directly (no SDK), maps every failure to a fixed error code, and never reads or forwards the provider's error text.
+- **Identity on the server.** The endpoint uses the same `getAuthContext()` as every page: session validated with Supabase Auth, own profile and school read under RLS. Inactive accounts, suspended schools and accounts that still have to change their password are refused.
+- **Cross-site protection.** Route handlers don't get Server Actions' built-in origin check, so the endpoint requires a same-origin `Origin` (or `Sec-Fetch-Site: same-origin`) and a JSON body. Another website can't use a signed-in person's session to spend a school's AI budget.
+- **No stored conversations.** The browser keeps the conversation and resends it (capped at 20 messages / 16,000 characters). `ai_usage_events` records metadata only: who, school, role, model, status, error code, tokens and duration. It has no column for text. Rows are written by the server (service role) after authentication; browsers can only read their own rows (school admins: their school's).
+- **Cost control.** Per person 6/minute and 60/day, and per school 1,500/day (environment variables), plus a cap on reply length and a timeout. If limits can't be checked (no service key, database error), the assistant refuses rather than running unmetered.
+- **Data minimisation.** In AI-1 the model receives only the person's role and school name. From AI-4 it will get data only through tools that re-check authorisation, and tool results are marked as data, never instructions.
+- **Secrets.** `ANTHROPIC_API_KEY` has no `NEXT_PUBLIC_` prefix and is read only in `lib/ai/config.ts` (`server-only`). A build scan of `.next/static` confirms no key name, provider URL or header appears in browser code.
+
+## 20. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -286,3 +310,6 @@ The generator lives in the `demo` schema: not exposed by the API, no grants to `
 | 31 | School reports use issued report cards, not raw scores | Leaders see the same published figures families see; unpublished grades never leak into a report or export. |
 | 32 | Demonstration schools flagged in the database and labelled everywhere they appear | Fictional records can't be mistaken for, or presented as, real results — including on printed report cards and Ministry reports. |
 | 33 | Demo generator in a non-API schema, owner-only; removal refuses real schools | Nobody can create or delete demo data through the app, and cleanup can never touch a real school. |
+| 34 | AI endpoint requires same origin and a JSON body | Route handlers lack Server Actions' origin check; without it another site could spend a school's AI budget with a visitor's session. |
+| 35 | AI usage log stores metadata only, written by the server | Limits and monitoring need who/when/tokens, not what was asked; students' questions are not kept. |
+| 36 | AI refuses to run if usage limits can't be enforced | A misconfiguration must never mean unmetered spending. |

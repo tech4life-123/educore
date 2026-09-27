@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "db:types": "supabase gen types typescript --linked --schema public > types/database.ts",
-    "check": "npm run lint && npm run typecheck && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "test:ai": "node --experimental-strip-types --no-warnings --conditions=react-server --import ./tests/register.mjs --test \"tests/ai/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
