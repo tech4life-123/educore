@@ -84,7 +84,12 @@ export function DropdownMenu({
           aria-label={triggerLabel}
           onKeyDown={onMenuKeyDown}
           onClick={(event) => {
-            if ((event.target as HTMLElement).closest('[role="menuitem"]')) setOpen(false);
+            // Close AFTER the click finishes. Closing synchronously unmounts the
+            // menu before the browser dispatches a menu item's form submit
+            // ("form is not connected"), which silently broke Sign out.
+            if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
+              setTimeout(() => setOpen(false), 0);
+            }
           }}
           className={cn(
             "absolute z-40 mt-2 min-w-56 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-lg",
