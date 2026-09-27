@@ -1,11 +1,12 @@
-import { attendanceRate, femaleShare, passRate } from "@/lib/platform-stats";
+import { attendanceRate, femaleShare, includeDemoParam, passRate } from "@/lib/platform-stats";
 import { requireSuperAdmin } from "@/services/auth";
 import { getPlatformStatistics } from "@/services/platform";
 
 /** Per-school statistics as CSV (aggregates only — no individual records). */
-export async function GET() {
+export async function GET(request: Request) {
   await requireSuperAdmin();
-  const rows = await getPlatformStatistics();
+  const includeDemo = includeDemoParam(new URL(request.url).searchParams.get("demo"));
+  const rows = (await getPlatformStatistics()).filter((r) => includeDemo || !r.is_demo);
 
   const cell = (v: string | number | null) => {
     const s = v === null ? "" : String(v);
@@ -14,13 +15,13 @@ export async function GET() {
   };
   const pct = (v: number | null) => (v === null ? null : Math.round(v * 10) / 10);
   const header = [
-    "School", "Code", "County", "Status", "Current year", "Students", "Girls", "Boys", "Girls %", "Enrolled in a class",
+    "School", "Code", "County", "Status", "Demonstration (fictional)", "Current year", "Students", "Girls", "Boys", "Girls %", "Enrolled in a class",
     "Teachers", "Administrators", "Classes", "Present", "Late", "Absent", "Excused", "Attendance %",
     "Students with report card", "Passed", "Pass rate %", "Passing score",
   ];
   const lines = rows.map((r) =>
     [
-      r.name, r.code, r.county, r.status, r.current_year, r.students, r.female, r.male, pct(femaleShare(r)), r.enrolled,
+      r.name, r.code, r.county, r.status, r.is_demo ? "yes" : "no", r.current_year, r.students, r.female, r.male, pct(femaleShare(r)), r.enrolled,
       r.teachers, r.admins, r.classes, r.att_present, r.att_late, r.att_absent, r.att_excused, pct(attendanceRate(r)),
       r.graded_students, r.passed, pct(passRate(r)), r.passing_score,
     ].map(cell).join(","),

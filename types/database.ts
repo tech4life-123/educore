@@ -1339,6 +1339,7 @@ export type Database = {
           currency: string
           email: string | null
           id: string
+          is_demo: boolean
           logo_url: string | null
           motto: string | null
           name: string
@@ -1363,6 +1364,7 @@ export type Database = {
           currency?: string
           email?: string | null
           id?: string
+          is_demo?: boolean
           logo_url?: string | null
           motto?: string | null
           name: string
@@ -1387,6 +1389,7 @@ export type Database = {
           currency?: string
           email?: string | null
           id?: string
+          is_demo?: boolean
           logo_url?: string | null
           motto?: string | null
           name?: string
@@ -1636,6 +1639,7 @@ export type Database = {
           enrolled: number
           female: number
           graded_students: number
+          is_demo: boolean
           male: number
           name: string
           passed: number

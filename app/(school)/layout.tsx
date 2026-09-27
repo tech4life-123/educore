@@ -44,6 +44,14 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
       }}
       navigation={navigationFor(role)}
       signOutAction={signOut}
+      banner={
+        school.is_demo ? (
+          <div role="note" className="border-b border-warning/30 bg-warning-soft px-4 py-2 text-center text-sm text-warning sm:px-6">
+            <strong>Demonstration school.</strong> Every person, grade and record here is fictional, generated to show how
+            EduCore works.
+          </div>
+        ) : null
+      }
       notifications={
         <NotificationsMenu
           unreadCount={live.filter((a) => !a.isRead).length}

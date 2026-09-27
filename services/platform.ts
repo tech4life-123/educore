@@ -6,7 +6,7 @@ import type { Database } from "@/types/database";
 import { requireSuperAdmin } from "./auth";
 import type { School } from "./auth";
 
-export type PlatformSchoolRow = Pick<School, "id" | "name" | "code" | "school_type" | "status" | "county" | "created_at">;
+export type PlatformSchoolRow = Pick<School, "id" | "name" | "code" | "school_type" | "status" | "county" | "created_at" | "is_demo">;
 
 export type PlatformSchoolsResult =
   | { status: "ok"; schools: PlatformSchoolRow[] }
@@ -29,7 +29,7 @@ export async function listSchoolsForPlatform(): Promise<PlatformSchoolsResult> {
 
   const { data, error } = await admin
     .from("schools")
-    .select("id, name, code, school_type, status, county, created_at")
+    .select("id, name, code, school_type, status, county, created_at, is_demo")
     .order("name", { ascending: true })
     .limit(500);
 
@@ -46,7 +46,7 @@ export async function listSchoolsForPlatform(): Promise<PlatformSchoolsResult> {
 
 export type PlatformSchool = Pick<
   School,
-  "id" | "name" | "code" | "slug" | "school_type" | "status" | "county" | "city" | "motto" | "phone" | "email" | "created_at"
+  "id" | "name" | "code" | "slug" | "school_type" | "status" | "county" | "city" | "motto" | "phone" | "email" | "created_at" | "is_demo"
 >;
 
 export interface PlatformSchoolAdmin {
@@ -79,7 +79,7 @@ export async function getSchoolForPlatform(schoolId: string): Promise<PlatformSc
   const [school, admins] = await Promise.all([
     admin
       .from("schools")
-      .select("id, name, code, slug, school_type, status, county, city, motto, phone, email, created_at")
+      .select("id, name, code, slug, school_type, status, county, city, motto, phone, email, created_at, is_demo")
       .eq("id", schoolId)
       .maybeSingle(),
     admin

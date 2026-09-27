@@ -243,7 +243,13 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 
 **Printing.** The app shell hides its sidebar and top bar when printing, so any page prints as a clean document.
 
-## 18. Security decisions log
+## 18. Demonstration schools (milestone 11)
+
+`schools.is_demo` marks a school whose people and records are fictional. Nobody can set it through the API (it isn't in any column grant); the app shows a banner inside such a school, prints "DEMONSTRATION — fictional … not a real record" on its report cards, labels it on platform screens, and the Ministry statistics state when demo schools are included (with a switch to leave them out).
+
+The generator lives in the `demo` schema: not exposed by the API, no grants to `anon`/`authenticated`, runnable only by the database owner. Generated people have Auth accounts without a password, so they can't sign in until a school administrator gives one a temporary password. Report cards are computed with exactly the app's rules; one student's 72 period grades were recomputed with `lib/grades/compute.ts` and matched. Bulk rows are written with triggers off (`session_replication_role = replica`) to keep fictional rows out of the audit log, so `supabase/demo/verify.sql` re-checks every foreign key and trigger rule afterwards. `demo.remove_school` refuses any school without `is_demo`.
+
+## 19. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -278,3 +284,5 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 | 29 | School status changed only through `platform_set_school_status`, which re-checks the caller's role | A forged request to the app can't suspend or archive a school; the audit trail names who did it. |
 | 30 | School report aggregates are SECURITY INVOKER | Counting in the database for speed must not become a way around RLS; the caller only ever counts rows they could already read. |
 | 31 | School reports use issued report cards, not raw scores | Leaders see the same published figures families see; unpublished grades never leak into a report or export. |
+| 32 | Demonstration schools flagged in the database and labelled everywhere they appear | Fictional records can't be mistaken for, or presented as, real results — including on printed report cards and Ministry reports. |
+| 33 | Demo generator in a non-API schema, owner-only; removal refuses real schools | Nobody can create or delete demo data through the app, and cleanup can never touch a real school. |

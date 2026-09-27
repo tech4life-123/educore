@@ -4,16 +4,33 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CountyTable, SchoolTable } from "@/components/platform/statistics-tables";
-import { attendanceRate, byCounty, femaleShare, passRate, percent, studentTeacherRatio, totals, whole } from "@/lib/platform-stats";
+import Link from "next/link";
+import { Alert } from "@/components/ui/alert";
+import {
+  attendanceRate,
+  byCounty,
+  countedSchools,
+  femaleShare,
+  includeDemoParam,
+  passRate,
+  percent,
+  studentTeacherRatio,
+  totals,
+  whole,
+} from "@/lib/platform-stats";
 import { requireSuperAdmin } from "@/services/auth";
 import { getPlatformStatistics } from "@/services/platform";
 
 export const metadata: Metadata = { title: "Statistics" };
 
-export default async function PlatformStatisticsPage() {
+export default async function PlatformStatisticsPage({ searchParams }: PageProps<"/platform/statistics">) {
   await requireSuperAdmin();
+  const includeDemo = includeDemoParam((await searchParams).demo);
   const all = await getPlatformStatistics();
-  const schools = all.filter((s) => s.status === "active");
+  const schools = countedSchools(all, includeDemo);
+  const demoCount = all.filter((s) => s.status === "active" && s.is_demo).length;
+  const demoIn = schools.filter((s) => s.is_demo).length;
+  const query = includeDemo ? "" : "?demo=exclude";
   const excluded = all.length - schools.length;
   const t = totals(schools);
   const counties = byCounty(schools);
@@ -26,18 +43,29 @@ export default async function PlatformStatisticsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Statistics</h1>
           <p className="mt-1 text-sm text-muted">
             Totals across the {schools.length} active {schools.length === 1 ? "school" : "schools"} on EduCore, for each school’s current academic year.
-            {excluded ? ` ${excluded} suspended, pending or archived ${excluded === 1 ? "school is" : "schools are"} left out.` : ""}
+            {excluded ? ` ${excluded} ${excluded === 1 ? "school is" : "schools are"} left out (suspended, pending, archived${includeDemo ? "" : " or demonstration"}).` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/platform/statistics/export" className={buttonClasses("secondary")}>
+          <a href={`/platform/statistics/export${query}`} className={buttonClasses("secondary")}>
             Download CSV
           </a>
-          <a href="/print/statistics" target="_blank" rel="noopener" className={buttonClasses()}>
+          <a href={`/print/statistics${query}`} target="_blank" rel="noopener" className={buttonClasses()}>
             Printable report
           </a>
         </div>
       </div>
+
+      {demoCount > 0 ? (
+        <Alert tone={demoIn ? "warning" : "info"} title={demoIn ? "Includes demonstration schools" : "Demonstration schools left out"}>
+          {demoIn
+            ? `${demoIn} of these ${schools.length} schools are demonstration schools with fictional data. `
+            : `${demoCount} demonstration ${demoCount === 1 ? "school is" : "schools are"} hidden. `}
+          <Link href={includeDemo ? "/platform/statistics?demo=exclude" : "/platform/statistics"} className="font-medium underline underline-offset-4">
+            {includeDemo ? "Show real schools only" : "Include demonstration schools"}
+          </Link>
+        </Alert>
+      ) : null}
 
       {schools.length === 0 ? (
         <Card>

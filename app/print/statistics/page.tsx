@@ -1,16 +1,28 @@
 import type { Metadata } from "next";
 import { CountyTable, SchoolTable } from "@/components/platform/statistics-tables";
-import { attendanceRate, byCounty, femaleShare, passRate, percent, studentTeacherRatio, totals, whole } from "@/lib/platform-stats";
+import {
+  attendanceRate,
+  byCounty,
+  countedSchools,
+  femaleShare,
+  includeDemoParam,
+  passRate,
+  percent,
+  studentTeacherRatio,
+  totals,
+  whole,
+} from "@/lib/platform-stats";
 import { requireSuperAdmin } from "@/services/auth";
 import { getPlatformStatistics } from "@/services/platform";
 import { StatisticsToolbar } from "./toolbar";
 
 export const metadata: Metadata = { title: "Statistics report" };
 
-export default async function PrintStatisticsPage() {
+export default async function PrintStatisticsPage({ searchParams }: PageProps<"/print/statistics">) {
   await requireSuperAdmin();
   const all = await getPlatformStatistics();
-  const schools = all.filter((s) => s.status === "active");
+  const schools = countedSchools(all, includeDemoParam((await searchParams).demo));
+  const demoIn = schools.filter((s) => s.is_demo).length;
   const t = totals(schools);
   const counties = byCounty(schools);
   const generated = new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "Africa/Monrovia" }).format(new Date());
@@ -36,6 +48,13 @@ export default async function PrintStatisticsPage() {
             {schools.length} active {schools.length === 1 ? "school" : "schools"} · current academic year of each school · generated {generated}
           </p>
         </header>
+
+        {demoIn ? (
+          <p className="mt-3 rounded border-2 border-dashed border-red-700 px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-red-700">
+            Includes {demoIn} demonstration {demoIn === 1 ? "school" : "schools"} with fictional data — for demonstration only, not
+            official figures
+          </p>
+        ) : null}
 
         <dl className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-7">
           {figures.map(([label, value]) => (

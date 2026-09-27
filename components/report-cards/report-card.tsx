@@ -13,6 +13,8 @@ export interface CardSchool {
   phone: string | null;
   email: string | null;
   logo_url: string | null;
+  /** Demonstration school: every card carries a visible "fictional" mark. */
+  is_demo?: boolean;
 }
 
 /**
@@ -55,6 +57,12 @@ export function ReportCard({
         </div>
         {school.logo_url ? <div className="w-16 shrink-0" aria-hidden="true" /> : null}
       </header>
+
+      {school.is_demo ? (
+        <p className="mt-2 rounded border-2 border-dashed border-red-700 px-2 py-1 text-center text-[11px] font-bold uppercase tracking-widest text-red-700">
+          Demonstration — fictional student and school data · not a real record
+        </p>
+      ) : null}
 
       <h2 className="mt-3 text-center text-base font-bold uppercase tracking-wider">
         Report Card — {data.term.name} · {data.yearName}

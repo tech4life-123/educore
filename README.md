@@ -140,6 +140,8 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_announcements.sql` | Announcements (everyone / staff / students / parents / one class), scheduling, expiry, pinning, read receipts; RLS by audience |
 | `…_attendance.sql` | Attendance registers and marks; RLS (homeroom/admin write, class teachers read, self/parent read); date and enrolment checks |
 | `…_report_aggregates.sql` | `report_attendance_by_month` and `report_attendance_by_student` (SECURITY INVOKER — counted under the caller's RLS) |
+| `…_demo_schools.sql` | `schools.is_demo` (banner, report-card mark, platform labels); statistics report it |
+| `…_demo_data_generator.sql` (+ two small patches) | `demo` schema, owner-only: fictional schools with a full school year — see [supabase/demo](./supabase/demo/README.md) |
 | `…_platform_tools.sql` | `platform_set_school_status` (suspend / reactivate / archive) and `platform_school_statistics` (per-school aggregates); super admins only |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
@@ -191,5 +193,6 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 7. ~~Announcements and notifications~~ ✅
 8. ~~Platform tools — school status, administrators, cross-school statistics by county~~ ✅
 9. ~~Reports and analytics for school leaders~~ ✅
-10. Parent portal.
-11. University support (faculties, programmes, credit hours, GPA).
+10. ~~Demonstration data (seven fictional schools, clearly labelled)~~ ✅
+11. Parent portal.
+12. University support (faculties, programmes, credit hours, GPA).

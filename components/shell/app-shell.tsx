@@ -32,6 +32,7 @@ export function AppShell({
   navigation,
   signOutAction,
   notifications,
+  banner,
   children,
 }: {
   identity: ShellIdentity;
@@ -40,6 +41,8 @@ export function AppShell({
   signOutAction: () => Promise<void>;
   /** Bell contents; defaults to an empty bell. */
   notifications?: ReactNode;
+  /** Full-width notice under the top bar (e.g. demonstration school). */
+  banner?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -75,6 +78,7 @@ export function AppShell({
           </div>
         </header>
 
+        {banner}
         <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-8 print:max-w-none print:p-0">
           {children}
         </main>

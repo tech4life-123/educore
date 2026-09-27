@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import {
@@ -69,6 +70,7 @@ export interface SchoolStatRow extends StatCounts {
   code: string;
   county: string | null;
   current_year: string | null;
+  is_demo?: boolean;
 }
 
 export function SchoolTable({ schools, linkSchools = true }: { schools: SchoolStatRow[]; linkSchools?: boolean }) {
@@ -97,6 +99,11 @@ export function SchoolTable({ schools, linkSchools = true }: { schools: SchoolSt
               ) : (
                 <span className="font-medium">{s.name}</span>
               )}
+              {s.is_demo ? (
+                <Badge tone="warning" className="ml-2 print:border print:border-neutral-500">
+                  Demo
+                </Badge>
+              ) : null}
               <span className="block text-xs text-muted">
                 {s.code}
                 {s.current_year ? ` · ${s.current_year}` : " · no current year"}

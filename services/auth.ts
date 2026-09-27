@@ -38,7 +38,7 @@ export type ViewerProfile = Pick<
 >;
 export type ViewerSchool = Pick<
   School,
-  "id" | "name" | "code" | "motto" | "logo_url" | "primary_color" | "secondary_color" | "school_type" | "city" | "county" | "country"
+  "id" | "name" | "code" | "motto" | "logo_url" | "primary_color" | "secondary_color" | "school_type" | "city" | "county" | "country" | "is_demo"
 >;
 
 export type AuthContext =
@@ -57,7 +57,7 @@ export type PlatformContext = Extract<AuthContext, { status: "platform" }>;
 const PROFILE_COLUMNS =
   "id, first_name, middle_name, last_name, phone, photo_url, role, status, username, email, must_change_password, school_id" as const;
 const SCHOOL_COLUMNS =
-  "id, name, code, motto, logo_url, primary_color, secondary_color, school_type, city, county, country" as const;
+  "id, name, code, motto, logo_url, primary_color, secondary_color, school_type, city, county, country, is_demo" as const;
 
 export const getAuthContext = cache(async (): Promise<AuthContext> => {
   // Identity is always per-request: never let a protected page be prerendered,

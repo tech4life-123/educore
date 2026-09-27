@@ -72,6 +72,11 @@ export default async function PlatformPage() {
                       <Link href={`/platform/schools/${school.id}`} className="font-medium text-foreground underline-offset-4 hover:underline">
                         {school.name}
                       </Link>
+                      {school.is_demo ? (
+                        <Badge tone="warning" className="ml-2">
+                          Demo
+                        </Badge>
+                      ) : null}
                     </TD>
                     <TD>{school.code}</TD>
                     <TD>{schoolTypeLabel(school.school_type)}</TD>

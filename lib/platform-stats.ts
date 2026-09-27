@@ -128,3 +128,16 @@ export function percent(value: number | null): string {
 export function whole(n: number): string {
   return n.toLocaleString("en-US");
 }
+
+/**
+ * Schools counted in the statistics: active ones, with demonstration schools
+ * (fictional data) included unless `includeDemo` is false.
+ */
+export function countedSchools<T extends { status: SchoolStatus; is_demo: boolean }>(rows: T[], includeDemo: boolean): T[] {
+  return rows.filter((r) => r.status === "active" && (includeDemo || !r.is_demo));
+}
+
+/** `?demo=exclude` leaves demonstration schools out. */
+export function includeDemoParam(value: string | string[] | undefined | null): boolean {
+  return (Array.isArray(value) ? value[0] : value) !== "exclude";
+}

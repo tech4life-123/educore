@@ -71,6 +71,7 @@ export default async function PlatformSchoolPage({ params }: PageProps<"/platfor
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">{school.name}</h1>
           <Badge tone={STATUS_TONE[school.status]}>{STATUS_LABEL[school.status]}</Badge>
+          {school.is_demo ? <Badge tone="warning">Demonstration school · fictional data</Badge> : null}
         </div>
         <p className="mt-1 text-sm text-muted">
           {school.code} · {schoolTypeLabel(school.school_type)}
