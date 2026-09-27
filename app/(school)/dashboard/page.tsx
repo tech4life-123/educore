@@ -15,12 +15,18 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const { profile, school } = await requireSchoolMember("/dashboard");
-  const { denied } = await searchParams;
+  const { denied, password } = await searchParams;
   const role = profile.role as SchoolRole;
   const upcoming = navigationFor(role).filter((item) => !item.available);
 
   return (
     <div className="space-y-6">
+      {password === "changed" ? (
+        <Alert tone="success" title="Password updated">
+          Your new password is saved. Use it next time you sign in.
+        </Alert>
+      ) : null}
+
       {denied ? (
         <Alert tone="warning" title="Access denied">
           You don’t have permission to open that page. If you think this is a mistake, contact your school

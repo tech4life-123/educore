@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ROLE_LABELS, hasCapability, type SchoolRole } from "@/lib/auth/roles";
@@ -45,9 +46,12 @@ export default async function SettingsPage() {
               phone: profile.phone,
             }}
           />
-          <p className="mt-4 text-xs text-subtle">
-            Your role and school can only be changed by an administrator.
-          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-subtle">Your role and school can only be changed by an administrator.</p>
+            <ButtonLink href="/change-password" variant="secondary" size="sm">
+              Change password
+            </ButtonLink>
+          </div>
         </CardBody>
       </Card>
 
@@ -55,7 +59,7 @@ export default async function SettingsPage() {
         <CardHeader
           titleId="school-title"
           title="School"
-          description={isAdmin ? "Editing school details will be added with the school onboarding milestone." : undefined}
+          description={isAdmin ? "Editing school details and branding will be added in a later milestone." : undefined}
           action={<Badge tone="neutral">Read only</Badge>}
         />
         <CardBody>

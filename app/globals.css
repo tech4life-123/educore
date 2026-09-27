@@ -82,3 +82,19 @@ dialog::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Printing: only login slips / credential sheets are printed. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+}
