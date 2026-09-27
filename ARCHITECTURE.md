@@ -170,7 +170,28 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 
 **Publishing** is an admin-only RPC (`set_grading_period_published`, `SECURITY INVOKER`) that stamps who published and when.
 
-## 12. Security decisions log
+## 12. Report cards (milestone 5)
+
+**Issued snapshots.** An admin issues a class's cards for one semester. The server reads every score (which RLS allows only for admins) and builds each card with `lib/grades/report-card.ts`. It uses **published periods only**, adds class ranks, and stores one `report_cards` row per student: a jsonb snapshot of the card as issued, plus its average and rank. Students and parents read their own rows. They never need access to classmates' scores, which is how a rank can be shown without leaking anyone else's grades. Re-issuing replaces the snapshot; every issue is audited.
+
+**Ranking.**
+- The ranking basis is the semester average once every period of the semester is published; until then it is the latest published period's overall average.
+- Ranks use standard competition ranking, so ties share a place (1, 2, 2, 4).
+- The final semester also shows a yearly rank.
+
+**Remarks and promotion.**
+- **Remarks:** `report_card_remarks` are written by the class's homeroom teacher or an admin (`private.is_homeroom`). Students and parents can read a remark only once a card is issued (`private.report_card_issued`).
+- **Promotion:** it is automatic from the yearly average versus the passing score. An admin can override it per student (`promotion_decisions`).
+- Remarks and overrides are read live, so corrections don't require re-issuing.
+
+**Printing.** Pages under `/print` use a bare layout (no app shell). Each `.report-card` breaks to a new A4 page, and the browser's "Save as PDF" produces the file, so no server PDF engine is needed.
+
+**Group password reset.**
+- **Choosing accounts:** `/users/reset` re-resolves the accounts on the server when you confirm, and resets only those that were on the confirmed list *and* still match the filters.
+- **Authorization:** every reset still goes through `require_password_change()` first.
+- **Delivery:** new passwords are shown once, as printable slips or a CSV, and are never stored.
+
+## 13. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -197,3 +218,5 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 | 21 | Scores visible to students/parents only after publishing, enforced in RLS | Draft or disputed grades never leak, even through the REST API. |
 | 22 | Submission/publish locks in triggers, not UI | A stale form or crafted request can't alter reviewed or released grades. |
 | 23 | Grades computed from raw scores on read | One source of truth; corrections propagate everywhere immediately. |
+| 24 | Report cards stored as issued snapshots, readable per student | Ranks can be shown to families without exposing classmates' scores. |
+| 25 | Bulk reset re-validates targets server-side at confirm time | A tampered or stale confirmation list can't reset accounts outside the chosen group. |

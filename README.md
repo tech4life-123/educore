@@ -4,7 +4,7 @@
 
 EduCore is a multi-tenant school management platform. A single deployment serves many schools; each school sees only its own data, enforced by PostgreSQL Row Level Security. The first target market is high schools in Liberia; the data model deliberately avoids assumptions that would block colleges and universities later.
 
-> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). 3. School branding & academic structure (logo, colours, settings; academic years with the Liberian 2 × (3 periods + exam) calendar; grade levels Nursery–12; subjects; classes, subject teachers, enrolment; parent ↔ child links; setup checklist). 4. Assessments & grades (weighted categories, marking-period and exam grades, Liberian semester averages, submit → review → publish, student & parent results). See [Roadmap](#roadmap).
+> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). 3. School branding & academic structure (logo, colours, settings; academic years with the Liberian 2 × (3 periods + exam) calendar; grade levels Nursery–12; subjects; classes, subject teachers, enrolment; parent ↔ child links; setup checklist). 4. Assessments & grades (weighted categories, marking-period and exam grades, Liberian semester averages, submit → review → publish, student & parent results). 5. Report cards (issued snapshots with class rank, homeroom remarks, promotion, A4 printing) and group password resets. See [Roadmap](#roadmap).
 
 ---
 
@@ -32,6 +32,8 @@ app/
     academics/         Academic years & marking periods, grade levels, subjects (admins)
     classes/           Classes, subject teachers, enrolment (admins edit; teachers view)
     grades/            Gradebooks, score entry, review & publish (staff); published results (students, parents)
+    report-cards/      Issue, remarks, promotion (staff); issued cards (students, parents)
+  print/               Bare A4 layouts for printing (report cards)
   platform/            Super-admin area (server-side privileged access)
   account/             Explains blocked access (no profile, suspended, …)
 components/
@@ -42,11 +44,11 @@ lib/
   auth/                roles & capabilities, safe redirect helper
   env.ts, branding.ts, navigation.ts, format.ts
 services/              Server-only data access: auth.ts (guards), school.ts, members.ts, academics.ts, classes.ts, grades.ts, platform.ts
-lib/grades/compute.ts  Pure grade calculations (period, exam, semester and yearly averages)
+lib/grades/            Pure calculations: compute.ts (grades & averages), report-card.ts (cards, ranking, promotion)
 types/database.ts      Generated Supabase types
 supabase/
   migrations/          Reproducible schema, RLS and audit migrations
-  tests/               tenant_isolation.sql (37), user_management.sql (28), academics.sql (48), grades.sql (39) — self-cleaning security tests
+  tests/               tenant_isolation.sql (37), user_management.sql (28), academics.sql (48), grades.sql (39), report_cards.sql (27) — self-cleaning security tests
   snippets/            attach_profile.sql — provision users
   seed.sql             Local-only demo data ("Demo School")
 proxy.ts               Session refresh + optimistic route protection
@@ -106,6 +108,7 @@ Use the printed API URL and publishable key in `.env.local`. Public sign-up is d
 
 ### Provisioning users
 
+- **Lost login slips:** **User accounts → Reset passwords** gives a whole role or class new one-time passwords and prints fresh slips (by default only accounts still on a temporary password).
 - **School users:** a school administrator uses **User accounts** in the app. They can add one person, or import a CSV of up to 100 people. Each person gets a login (their email, or `username@SCHOOLCODE`) and a one-time password that they must change at first sign-in.
 - **Schools:** a platform super admin uses **/platform → Add school**, which creates the school and its first administrator.
 - **The first platform super admin** has to be bootstrapped once. Create the user in Supabase Dashboard → Authentication → Users, then run the super-admin block of `supabase/snippets/attach_profile.sql`.
@@ -127,6 +130,8 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_seed_grade_levels_without_on_conflict.sql` | Grade-level seeder compatible with the deferrable constraint |
 | `…_assessments_and_grades.sql` | Assessment categories (seeded per school), assessments, scores, grade submissions, period publishing, exam weight; RLS, locking triggers, `set_grading_period_published` |
 | `…_grades_indexes.sql` | Indexes covering the grades foreign keys |
+| `…_report_cards.sql` | Issued report cards (jsonb snapshot, average, rank), homeroom remarks, promotion overrides; RLS and scope triggers |
+| `…_promotion_decision_message.sql` | Clearer validation message |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
 
@@ -152,7 +157,7 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) and `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) work the same way.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) and `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) work the same way.
 
 ## Deployment (Vercel)
 
@@ -172,7 +177,7 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 2. ~~School settings & branding editor (logo upload, colours, academic settings)~~ ✅
 3. ~~Academic structure — academic years/terms, classes, subjects, enrolment, parent links~~ ✅
 4. ~~Assessments, examinations and grades~~ ✅
-5. Report cards (printable, per student and per class).
+5. ~~Report cards (printable, per student and per class)~~ ✅
 6. Attendance.
 7. Announcements and notifications.
 8. Parent portal.
