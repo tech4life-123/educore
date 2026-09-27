@@ -33,6 +33,7 @@ export type Database = {
           school_id: string | null
           status: string
           tool_calls: number
+          tool_names: string[]
         }
         Insert: {
           created_at?: string
@@ -49,6 +50,7 @@ export type Database = {
           school_id?: string | null
           status: string
           tool_calls?: number
+          tool_names?: string[]
         }
         Update: {
           created_at?: string
@@ -65,6 +67,7 @@ export type Database = {
           school_id?: string | null
           status?: string
           tool_calls?: number
+          tool_names?: string[]
         }
         Relationships: [
           {

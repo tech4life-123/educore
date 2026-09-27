@@ -15,6 +15,8 @@ interface Message extends ChatTurn {
   error?: string;
   retryable?: boolean;
   truncated?: boolean;
+  /** Progress text while a data tool runs, e.g. "Checking attendance…". */
+  status?: string;
 }
 
 let nextId = 1;
@@ -86,19 +88,24 @@ export function AssistantLauncher({ suggestions, dataAccess = false }: { suggest
         (chunk) => {
           answer += chunk;
           const snapshot = answer;
-          setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, content: snapshot } : m)));
+          setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, content: snapshot, status: undefined } : m)));
         },
         controller.signal,
+        undefined,
+        (status) => {
+          setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, status } : m)));
+          setAnnouncement(status);
+        },
       );
       abortRef.current = null;
       setBusy(false);
 
       if (result.ok) {
-        setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, pending: false, truncated: result.truncated } : m)));
+        setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, pending: false, status: undefined, truncated: result.truncated } : m)));
         setAnnouncement(`EduCore AI replied: ${answer}`);
       } else if (answer && result.message === "Stopped.") {
         // Keep what arrived before the person pressed Stop.
-        setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, pending: false, truncated: true } : m)));
+        setMessages((list) => list.map((m) => (m.id === reply.id ? { ...m, pending: false, status: undefined, truncated: true } : m)));
         setAnnouncement("Stopped.");
       } else {
         setMessages((list) =>
@@ -200,8 +207,9 @@ export function AssistantLauncher({ suggestions, dataAccess = false }: { suggest
                 <div>
                   <p className="text-lg font-semibold text-foreground">How can I help?</p>
                   <p className="mt-1 text-sm text-muted">
-                    Ask how to do something in EduCore, or for help with a topic.
-                    {dataAccess ? "" : " I can’t look up school records yet — that’s coming soon."}
+                    {dataAccess
+                      ? "Ask about your records in EduCore, how to do something, or for help with a topic. I only see what your account is allowed to see."
+                      : "Ask how to do something in EduCore, or for help with a topic. I can’t look up school records yet — that’s coming soon."}
                   </p>
                 </div>
                 {suggestions.length ? (
@@ -246,9 +254,14 @@ export function AssistantLauncher({ suggestions, dataAccess = false }: { suggest
                     <li key={m.id} className="flex flex-col items-start gap-1">
                       <span className="text-xs font-medium text-muted">EduCore AI</span>
                       <div className="max-w-[92%] break-words rounded-2xl rounded-bl-md bg-surface-muted px-3.5 py-2.5 text-sm leading-relaxed text-foreground">
-                        {m.content ? (
-                          <RichText text={m.content} />
-                        ) : (
+                        {m.content ? <RichText text={m.content} /> : null}
+                        {m.pending && m.status ? (
+                          <span className={`flex items-center gap-2 text-muted ${m.content ? "mt-2" : ""}`}>
+                            <Icons.sparkles width={14} height={14} className="animate-pulse" aria-hidden="true" />
+                            <span>{m.status}</span>
+                          </span>
+                        ) : null}
+                        {m.content || m.status ? null : (
                           <span className="inline-flex items-center gap-1 text-muted" aria-label="Thinking">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]" />

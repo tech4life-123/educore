@@ -31,6 +31,7 @@ export function trimHistory(turns: ChatTurn[]): ChatTurn[] {
 
 export type StreamLine =
   | { type: "text"; text: string }
+  | { type: "status"; text: string }
   | { type: "done"; truncated?: boolean }
   | { type: "error"; code?: string; message: string };
 
@@ -74,7 +75,8 @@ export type SendResult = { ok: true; truncated: boolean } | { ok: false; message
 const GENERIC = "EduCore AI is unavailable right now. Please try again later.";
 
 /**
- * Send the conversation and stream the reply into `onText`.
+ * Send the conversation and stream the reply into `onText`. Progress lines
+ * ("Checking attendance…" while a data tool runs) go to `onStatus`.
  * Never throws; aborting returns { ok: false, message: "Stopped." }.
  */
 export async function sendChat(
@@ -82,6 +84,7 @@ export async function sendChat(
   onText: (chunk: string) => void,
   signal?: AbortSignal,
   fetchImpl: typeof fetch = fetch,
+  onStatus?: (text: string) => void,
 ): Promise<SendResult> {
   let res: Response;
   try {
@@ -113,6 +116,7 @@ export async function sendChat(
   try {
     for await (const line of readNdjson(res.body)) {
       if (line.type === "text") onText(line.text);
+      else if (line.type === "status") onStatus?.(String(line.text ?? "").slice(0, 120));
       else if (line.type === "done") {
         truncated = Boolean(line.truncated);
         finished = true;

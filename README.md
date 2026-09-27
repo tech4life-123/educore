@@ -143,6 +143,7 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_demo_schools.sql` | `schools.is_demo` (banner, report-card mark, platform labels); statistics report it |
 | `…_demo_data_generator.sql` (+ two small patches) | `demo` schema, owner-only: fictional schools with a full school year — see [supabase/demo](./supabase/demo/README.md) |
 | `…_ai_usage_events.sql` | EduCore AI usage log (metadata only — no conversation text); read own / school admin; written only by the server |
+| `…_ai_usage_tool_names.sql` | `ai_usage_events.tool_names`: which data tools a request used (names only, at most 20) |
 | `…_platform_tools.sql` | `platform_set_school_status` (suspend / reactivate / archive) and `platform_school_statistics` (per-school aggregates); super admins only |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
@@ -169,11 +170,21 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) `supabase/tests/announcements.sql` (27 checks: who may post to which audience, who sees what, scheduling/expiry, read receipts) `supabase/tests/platform.sql` (31 checks: statistics figures and access, suspending/archiving a school, adding administrators) `supabase/tests/reports.sql` (11 checks: report counts stay inside the caller's school and visibility) and `supabase/tests/ai_usage.sql` (13 checks: who can read AI usage; nobody can write, change or erase it from the browser) work the same way.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) `supabase/tests/announcements.sql` (27 checks: who may post to which audience, who sees what, scheduling/expiry, read receipts) `supabase/tests/platform.sql` (31 checks: statistics figures and access, suspending/archiving a school, adding administrators) `supabase/tests/reports.sql` (11 checks: report counts stay inside the caller's school and visibility) and `supabase/tests/ai_usage.sql` (16 checks: who can read AI usage; nobody can write, change or erase it from the browser; tool-name limits) work the same way.
 
 ## EduCore AI
 
-The assistant is built in stages (AI-1 … AI-8). **AI-1 (done):** provider abstraction, secure server endpoint, usage log and limits. **AI-2 (done):** the chat panel — an **Ask AI** button in the top bar of every portal (shown only when the assistant is switched on), streaming replies, suggested questions per role, Stop, Retry, Clear, keyboard and screen-reader support. The assistant can't read school records yet (AI-4); questions that need records are not suggested until then.
+The assistant is built in stages (AI-1 … AI-8). **AI-1 (done):** provider abstraction, secure server endpoint, usage log and limits. **AI-2 (done):** the chat panel — an **Ask AI** button in the top bar of every portal (shown only when the assistant is switched on), streaming replies, suggested questions per role, Stop, Retry, Clear, keyboard and screen-reader support. **AI-3 (done):** the assistant knows who it is talking to — role, first name, school, today's date and the current academic year and semester — and nothing more up front. **AI-4 (done):** read-only data tools, each checking the person's role and scope itself, reading with the person's own Supabase session (RLS as a second lock):
+
+| Who | What they can ask about |
+| --- | --- |
+| Student | Their own published grades, attendance, report cards; the academic calendar; announcements |
+| Parent / guardian | The same, for children linked to their account only (asked to choose when there are several) |
+| Teacher | Their classes; students in those classes (grades only for subjects they teach; report cards only as homeroom teacher); class registers and attendance; their subjects' gradebook results |
+| School administrator | Everything above for any student or class in their school, plus today's overview, school performance and students who may benefit from additional support |
+| Platform administrator | Platform totals per status and county only — no individual students |
+
+While a tool runs the panel shows progress ("Checking attendance…"). Grades come from EduCore's grading engine; students and parents only see published marking periods.
 
 **Turn it on** (Vercel → Project → Settings → Environment Variables, then redeploy):
 
@@ -190,9 +201,9 @@ The assistant is built in stages (AI-1 … AI-8). **AI-1 (done):** provider abst
 
 Then, as super admin, open **Platform → EduCore AI → Test connection**.
 
-**Endpoint:** `POST /api/ai/chat` with `{"messages":[{"role":"user","content":"…"}]}` from the signed-in app (same origin only). Replies stream as NDJSON: `{"type":"text","text":"…"}` lines, then `{"type":"done"}` or `{"type":"error","code","message"}`.
+**Endpoint:** `POST /api/ai/chat` with `{"messages":[{"role":"user","content":"…"}]}` from the signed-in app (same origin only). Replies stream as NDJSON: `{"type":"text","text":"…"}` lines (and `{"type":"status","text":"…"}` while a data tool runs), then `{"type":"done"}` or `{"type":"error","code","message"}`. At most 5 model rounds and 8 tool calls per question.
 
-**Tests:** `npm run test:ai` (unit tests for the provider, streaming, limits and every endpoint branch) and `supabase/tests/ai_usage.sql` (usage-log access rules).
+**Tests:** `npm run test:ai` (unit tests for the provider, streaming, limits, every endpoint branch, the tool loop and the full tool authorisation matrix) and `supabase/tests/ai_usage.sql` (usage-log access rules).
 
 ## Deployment (Vercel)
 

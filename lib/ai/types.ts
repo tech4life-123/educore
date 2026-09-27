@@ -54,6 +54,8 @@ export interface AiRequest {
   system: string;
   messages: AiMessage[];
   tools?: AiToolDefinition[];
+  /** "none": the tools are defined (history may contain tool calls) but may not be used this turn. */
+  toolChoice?: "auto" | "none";
   maxOutputTokens: number;
   /** 0–1. Low values keep answers factual. */
   temperature?: number;

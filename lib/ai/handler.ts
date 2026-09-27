@@ -11,12 +11,13 @@
  *   5. Per-user and per-school usage limits
  * Then the reply is streamed as NDJSON lines:
  *   {"type":"text","text":"…"} … {"type":"done"}   or   {"type":"error","code":"…","message":"…"}
+ *   plus {"type":"status","text":"Checking attendance…"} while a data tool runs (AI-4).
  */
 
 import { userMessage, type ChatErrorCode } from "./errors";
 import { checkUsage, INPUT_LIMITS, validateChatInput, type UsageCounts, type UsageLimits } from "./limits";
 import { buildSystemPrompt, type ViewerRole } from "./prompt";
-import { AiError, type AiProvider, type AiUsage } from "./types";
+import { AiError, type AiContentBlock, type AiMessage, type AiProvider, type AiToolDefinition, type AiUsage } from "./types";
 
 export interface Viewer {
   profileId: string;
@@ -24,7 +25,21 @@ export interface Viewer {
   /** Null for platform (super admin) users. */
   schoolId: string | null;
   schoolName: string | null;
+  firstName: string;
 }
+
+/** Data tools for one viewer (AI-4). Every run re-checks authorisation. */
+export interface ToolBox {
+  definitions: AiToolDefinition[];
+  run(name: string, input: unknown): Promise<{ ok: boolean; content: string }>;
+  /** Short progress text shown while a tool runs, e.g. "Checking attendance…". */
+  label(name: string): string;
+  /** Today's date and the current academic year/semester, for the prompt (AI-3). */
+  context: { today: string | null; yearName: string | null; termName: string | null };
+}
+
+/** Per request: at most this many model calls and tool calls. */
+export const TOOL_LIMITS = { maxRounds: 5, maxToolCalls: 8 } as const;
 
 export type ViewerLookup =
   | { status: "ok"; viewer: Viewer }
@@ -42,6 +57,7 @@ export interface UsageEvent {
   inputTokens: number;
   outputTokens: number;
   toolCalls: number;
+  toolNames?: string[];
   durationMs: number;
 }
 
@@ -58,6 +74,8 @@ export interface ChatDeps {
   usage: UsageStore | null;
   limits: UsageLimits;
   maxOutputTokens: number;
+  /** Data tools for this viewer; omitted = no tools (AI-1/AI-2 behaviour). */
+  getTools?: (viewer: Viewer) => Promise<ToolBox | null>;
   now?: () => number;
   log?: (message: string, meta?: Record<string, unknown>) => void;
 }
@@ -146,34 +164,103 @@ export async function handleChat(request: Request, deps: ChatDeps): Promise<Resp
     return fail(429, "usage_limit", { "retry-after": String(decision.retryAfterSeconds) });
   }
 
+  // Tools and context (AI-3/AI-4). If they can't be prepared the assistant still answers, without data.
+  let toolbox: ToolBox | null = null;
+  if (deps.getTools) {
+    try {
+      toolbox = await deps.getTools(viewer);
+    } catch {
+      log("[ai] tool setup failed");
+    }
+  }
+
   // Stream the reply. The provider call is cancelled if the browser disconnects.
   const abort = new AbortController();
   request.signal?.addEventListener("abort", () => abort.abort(), { once: true });
-  const system = buildSystemPrompt({ role: viewer.role, schoolName: viewer.schoolName, toolNames: [] });
+  const system = buildSystemPrompt({
+    role: viewer.role,
+    schoolName: viewer.schoolName,
+    firstName: viewer.firstName,
+    toolNames: toolbox?.definitions.map((t) => t.name) ?? [],
+    today: toolbox?.context.today ?? null,
+    yearName: toolbox?.context.yearName ?? null,
+    termName: toolbox?.context.termName ?? null,
+  });
   const started = now();
   const encoder = new TextEncoder();
 
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (line: Record<string, unknown>) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
-      let tokens: AiUsage = { inputTokens: 0, outputTokens: 0 };
+      const tokens: AiUsage = { inputTokens: 0, outputTokens: 0 };
       let model = provider.model;
       let errorCode: string | undefined;
+      const toolNames: string[] = [];
+      let toolCalls = 0;
+      let conversation: AiMessage[] = input.messages;
+      let wroteText = false;
       try {
-        for await (const event of provider.stream({
-          system,
-          messages: input.messages,
-          maxOutputTokens: deps.maxOutputTokens,
-          temperature: 0.3,
-          signal: abort.signal,
-        })) {
-          if (event.type === "text") send({ type: "text", text: event.text });
-          else if (event.type === "done") {
-            tokens = event.usage;
-            model = event.model;
-            send({ type: "done", truncated: event.stopReason === "max_tokens" });
+        for (let round = 0; round < TOOL_LIMITS.maxRounds; round++) {
+          // The last round (or once the tool budget is spent) must answer without tools.
+          const hasTools = Boolean(toolbox?.definitions.length);
+          const offerTools = hasTools && round < TOOL_LIMITS.maxRounds - 1 && toolCalls < TOOL_LIMITS.maxToolCalls;
+          // After a tool round the history contains tool calls, so the definitions must still be
+          // sent (the provider rejects them otherwise) — but with tool use switched off.
+          let text = "";
+          let separated = false;
+          const calls: { id: string; name: string; input: unknown }[] = [];
+          let stop: string = "end_turn";
+          for await (const event of provider.stream({
+            system,
+            messages: conversation,
+            tools: hasTools && (offerTools || round > 0) ? toolbox!.definitions : undefined,
+            toolChoice: offerTools ? "auto" : "none",
+            maxOutputTokens: deps.maxOutputTokens,
+            temperature: 0.3,
+            signal: abort.signal,
+          })) {
+            if (event.type === "text") {
+              if (wroteText && !separated && round > 0) {
+                send({ type: "text", text: "\n\n" });
+                separated = true;
+              }
+              text += event.text;
+              wroteText = true;
+              send({ type: "text", text: event.text });
+            } else if (event.type === "tool_use") {
+              calls.push(event);
+            } else if (event.type === "done") {
+              tokens.inputTokens += event.usage.inputTokens;
+              tokens.outputTokens += event.usage.outputTokens;
+              model = event.model;
+              stop = event.stopReason;
+            }
           }
-          // tool_use events are handled from AI-4; no tools are offered yet.
+
+          if (stop !== "tool_use" || calls.length === 0 || !toolbox || !offerTools) {
+            send({ type: "done", truncated: stop === "max_tokens" });
+            break;
+          }
+
+          // Run the requested tools (each re-checks authorisation), within budget.
+          const assistant: AiContentBlock[] = [
+            ...(text ? [{ type: "text" as const, text }] : []),
+            ...calls.map((c) => ({ type: "tool_use" as const, id: c.id, name: c.name, input: c.input })),
+          ];
+          const results: AiContentBlock[] = [];
+          for (const call of calls) {
+            if (toolCalls >= TOOL_LIMITS.maxToolCalls) {
+              results.push({ type: "tool_result", toolUseId: call.id, content: JSON.stringify({ error: "Tool limit reached for this question. Answer with what you have." }), isError: true });
+              continue;
+            }
+            toolCalls++;
+            if (!toolNames.includes(call.name) && toolNames.length < 20) toolNames.push(call.name);
+            send({ type: "status", text: toolbox.label(call.name) });
+            const result = await toolbox.run(call.name, call.input);
+            results.push({ type: "tool_result", toolUseId: call.id, content: result.content, isError: !result.ok });
+          }
+          conversation = [...conversation, { role: "assistant", content: assistant }, { role: "user", content: results }];
+          if (round === TOOL_LIMITS.maxRounds - 1) send({ type: "done", truncated: true });
         }
       } catch (error) {
         errorCode = error instanceof AiError ? error.code : "internal";
@@ -190,7 +277,8 @@ export async function handleChat(request: Request, deps: ChatDeps): Promise<Resp
             errorCode,
             inputTokens: tokens.inputTokens,
             outputTokens: tokens.outputTokens,
-            toolCalls: 0,
+            toolCalls,
+            toolNames,
             durationMs: Math.max(0, now() - started),
           })
           .catch(() => log("[ai] usage record failed"));

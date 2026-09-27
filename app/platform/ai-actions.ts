@@ -19,7 +19,7 @@ export async function testAiConnection(): Promise<ActionState> {
   const usage = createUsageStore();
   if (!provider || !usage) return { status: "error", message: `EduCore AI is off: ${config.disabledReason ?? "not configured"}` };
 
-  const viewer = { profileId: profile.id, role: "super_admin" as const, schoolId: null, schoolName: null };
+  const viewer = { profileId: profile.id, role: "super_admin" as const, schoolId: null, schoolName: null, firstName: profile.first_name };
   const started = Date.now();
   try {
     const reply = await provider.complete({

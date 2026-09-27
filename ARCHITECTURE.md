@@ -249,7 +249,7 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 
 The generator lives in the `demo` schema: not exposed by the API, no grants to `anon`/`authenticated`, runnable only by the database owner. Generated people have Auth accounts without a password, so they can't sign in until a school administrator gives one a temporary password. Report cards are computed with exactly the app's rules; one student's 72 period grades were recomputed with `lib/grades/compute.ts` and matched. Bulk rows are written with triggers off (`session_replication_role = replica`) to keep fictional rows out of the audit log, so `supabase/demo/verify.sql` re-checks every foreign key and trigger rule afterwards. `demo.remove_school` refuses any school without `is_demo`.
 
-## 19. EduCore AI (AI-1: foundation)
+## 19. EduCore AI (AI-1 foundation, AI-2 panel, AI-3 context, AI-4 data tools)
 
 ```
 Browser (same origin, signed in)
@@ -270,7 +270,7 @@ Supabase
 - **Cross-site protection.** Route handlers don't get Server Actions' built-in origin check, so the endpoint requires a same-origin `Origin` (or `Sec-Fetch-Site: same-origin`) and a JSON body. Another website can't use a signed-in person's session to spend a school's AI budget.
 - **No stored conversations.** The browser keeps the conversation and resends it (capped at 20 messages / 16,000 characters). `ai_usage_events` records metadata only: who, school, role, model, status, error code, tokens and duration. It has no column for text. Rows are written by the server (service role) after authentication; browsers can only read their own rows (school admins: their school's).
 - **Cost control.** Per person 6/minute and 60/day, and per school 1,500/day (environment variables), plus a cap on reply length and a timeout. If limits can't be checked (no service key, database error), the assistant refuses rather than running unmetered.
-- **Data minimisation.** In AI-1 the model receives only the person's role and school name. From AI-4 it will get data only through tools that re-check authorisation, and tool results are marked as data, never instructions.
+- **Data minimisation.** The prompt carries only role, first name, school and dates (AI-3). Records reach the model only through tools that re-check authorisation (AI-4), and tool results are data, never instructions.
 - **Secrets.** `ANTHROPIC_API_KEY` has no `NEXT_PUBLIC_` prefix and is read only in `lib/ai/config.ts` (`server-only`). A build scan of `.next/static` confirms no key name, provider URL or header appears in browser code.
 
 ### AI-2: chat panel
@@ -279,7 +279,29 @@ Supabase
 - **Conversation in memory only.** Kept in React state in the shell, so it survives page changes but not a reload or sign-out. Nothing is written to localStorage, sessionStorage or the server. `lib/ai/client.ts` trims the history to the server's limits before sending.
 - **Safe rendering.** Replies are parsed by `lib/ai/rich-text.ts` (paragraphs, lists, bold, code) and rendered as React elements, never as HTML, so model output can't inject markup or scripts.
 - **Accessibility.** The conversation is a `role="log"`; screen readers get a single announcement per reply (not every streamed word) and errors as alerts. axe (WCAG 2 A/AA) reports no violations on the empty or answered panel, on desktop and phone.
-- **Suggestions per role** live in `lib/ai/suggestions.ts`; data questions are hidden until `AI_DATA_TOOLS_AVAILABLE` is switched on in AI-4.
+- **Suggestions per role** live in `lib/ai/suggestions.ts`; data questions are shown now that `AI_DATA_TOOLS_AVAILABLE` is on (AI-4).
+
+### AI-3: user context
+
+- The system prompt (`lib/ai/prompt.ts`) gets the role, first name, school name, today's date (school time zone) and the current academic year and semester — no records. Names from the database are flattened to one short line, so a crafted name can't add lines to the prompt.
+- Each role's scope is written into the prompt (student: own records; parent: linked children; teacher: classes taught; admin: own school; platform: totals), so the model can explain a refusal — but enforcement is in the tools, not the prompt.
+
+### AI-4: role-aware data tools
+
+```
+handler.ts  round 1..5: stream model reply → tool_use? → status line → ToolBox.run → tool_result → next round
+   │
+tools/registry.ts   14 read-only tools; offered by role; every run re-checks role + scope (resolveStudent / resolveClass)
+   │
+tools/data.ts       EduCoreData over existing services, with the person's OWN Supabase session → RLS
+```
+
+- **Two independent locks.** A tool is offered only to its roles, refuses by itself (student ≠ other id; parent → linked child; teacher → student enrolled in a class they teach, own subjects only, report cards only as homeroom; admin → own school; platform → aggregates), and then reads through RLS as the signed-in person. No service-role key and no SQL from the model; ids from the model must be UUIDs.
+- **Grading engine, not the model.** Grades are computed by `lib/grades/compute.ts` from the gradebook. Students and parents see published periods only, and a semester average only once every period in it is published. School figures come from the Reports service; platform figures from `platform_school_statistics`.
+- **Minimal, bounded results.** Tools return names, class names and figures — no usernames, emails, birth dates, phone numbers or addresses — capped in length (24 KB) and in list size. Announcement text is labelled as information only (prompt-injection defence).
+- **Safe failures.** A refusal returns a plain message for the model to relay; any other error becomes "The information couldn't be loaded right now." and only the tool name is logged.
+- **Bounded loop.** At most 5 model rounds and 8 tool calls per question. After a tool round the definitions are still sent (the provider requires them when the history has tool calls) with `tool_choice: none` in the final round.
+- **Audit.** `ai_usage_events.tool_names` records which tools a request used (names only), with summed tokens across rounds.
 
 ## 20. Security decisions log
 
@@ -323,3 +345,6 @@ Supabase
 | 36 | AI refuses to run if usage limits can't be enforced | A misconfiguration must never mean unmetered spending. |
 | 37 | AI conversations kept only in page memory | Shared school computers: nothing a student asked is left behind in browser storage or on the server. |
 | 38 | AI replies rendered from a parsed structure, never as HTML | Text from the model, or from school data it quotes, can't inject markup or scripts. |
+| 39 | AI data tools read with the person's own session, never the service role | RLS stays a second, independent lock even if a tool's own check had a bug. |
+| 40 | Fixed, read-only tools instead of model-written queries | The model can only ask the questions EduCore defines; it can't reach tables, columns or schools the tools don't expose. |
+| 41 | Teachers see only their own subjects' grades through the assistant | Matches RLS and the gradebook; avoids partial rows that would look like missing grades. |

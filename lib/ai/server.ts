@@ -6,6 +6,8 @@ import { createAiProvider, getAiConfig } from "./config";
 import type { ChatDeps, UsageEvent, UsageStore, Viewer, ViewerLookup } from "./handler";
 import type { UsageCounts } from "./limits";
 import type { ViewerRole } from "./prompt";
+import { createEduCoreData } from "./tools/data";
+import { createToolBox } from "./tools/registry";
 
 /**
  * Production wiring for the AI endpoint.
@@ -14,7 +16,8 @@ import type { ViewerRole } from "./prompt";
  * (getAuthContext: session validated with Supabase Auth, own profile and
  * school read under RLS). The service-role client is used ONLY for the usage
  * log and limits, and only after that check has established who is asking —
- * never to read school data for the model.
+ * never to read school data for the model. School data for the tools is read
+ * with the person's own session (lib/ai/tools/data.ts).
  */
 
 export async function getAiViewer(): Promise<ViewerLookup> {
@@ -31,12 +34,18 @@ export async function getAiViewer(): Promise<ViewerLookup> {
       return { status: "forbidden" };
     case "platform":
       if (ctx.profile.must_change_password) return { status: "forbidden" };
-      return { status: "ok", viewer: { profileId: ctx.profile.id, role: "super_admin", schoolId: null, schoolName: null } };
+      return { status: "ok", viewer: { profileId: ctx.profile.id, role: "super_admin", schoolId: null, schoolName: null, firstName: ctx.profile.first_name } };
     case "ok":
       if (ctx.profile.must_change_password) return { status: "forbidden" };
       return {
         status: "ok",
-        viewer: { profileId: ctx.profile.id, role: ctx.profile.role as ViewerRole, schoolId: ctx.school.id, schoolName: ctx.school.name },
+        viewer: {
+          profileId: ctx.profile.id,
+          role: ctx.profile.role as ViewerRole,
+          schoolId: ctx.school.id,
+          schoolName: ctx.school.name,
+          firstName: ctx.profile.first_name,
+        },
       };
   }
 }
@@ -83,6 +92,7 @@ export function createUsageStore(): UsageStore | null {
         input_tokens: Math.max(0, Math.round(e.inputTokens)),
         output_tokens: Math.max(0, Math.round(e.outputTokens)),
         tool_calls: e.toolCalls,
+        tool_names: (e.toolNames ?? []).slice(0, 20),
         duration_ms: Math.max(0, Math.round(e.durationMs)),
       });
       if (error) throw new Error(`usage record failed (${error.code})`);
@@ -98,5 +108,8 @@ export function chatDeps(): ChatDeps {
     usage: config.enabled ? createUsageStore() : null,
     limits: config.limits,
     maxOutputTokens: config.maxOutputTokens,
+    // Data tools read with the signed-in person's own session (RLS applies);
+    // each tool also checks the person's role and scope itself.
+    getTools: (viewer) => createToolBox(viewer, createEduCoreData(viewer.schoolId)),
   };
 }

@@ -1,5 +1,5 @@
 -- =============================================================================
--- EduCore — AI usage log tests (migration …_ai_usage_events)
+-- EduCore — AI usage log tests (migrations …_ai_usage_events, …_ai_usage_tool_names)
 --
 -- Same harness as tenant_isolation.sql: throwaway fixtures, cases run as the
 -- real `authenticated`/`anon` roles with a forged JWT sub, everything rolled
@@ -56,7 +56,10 @@ begin
       ('U10','Anonymous visitor reads usage',                 'anon','count',    'select 1 from public.ai_usage_events', 'denied'),
       ('U11','Row for a school user without a school',        'postgres','exec', format($q$insert into public.ai_usage_events (profile_id, school_id, role, kind, provider, model, status) values (%L, null, 'teacher', 'chat', 'x', 'x', 'ok')$q$, p_tch), 'denied'),
       ('U12','Unknown status value',                          'postgres','exec', format($q$insert into public.ai_usage_events (profile_id, school_id, role, kind, provider, model, status) values (%L, %L, 'teacher', 'chat', 'x', 'x', 'maybe')$q$, p_tch, a), 'denied'),
-      ('U13','No column can hold conversation text',          'postgres','count', $q$select 1 from information_schema.columns where table_schema = 'public' and table_name = 'ai_usage_events' and column_name in ('prompt','question','answer','content','message','messages','response')$q$, 'rows=0')
+      ('U13','No column can hold conversation text',          'postgres','count', $q$select 1 from information_schema.columns where table_schema = 'public' and table_name = 'ai_usage_events' and column_name in ('prompt','question','answer','content','message','messages','response')$q$, 'rows=0'),
+      ('U14','More than 20 tool names in one row',            'postgres','exec', format($q$insert into public.ai_usage_events (profile_id, school_id, role, kind, provider, model, status, tool_names) values (%L, %L, 'teacher', 'chat', 'x', 'x', 'ok', array_fill('t'::text, array[21]))$q$, p_tch, a), 'denied'),
+      ('U15','Student rewrites the tools recorded for them',  'student','exec',  $q$update public.ai_usage_events set tool_names = '{}'$q$, 'denied'),
+      ('U16','Tool names default to an empty list',           'postgres','count', format($q$select 1 from public.ai_usage_events where tool_names = '{}' and profile_id in (%L, %L, %L, %L, %L)$q$, p_stu, p_tch, p_adm, p_adm_b, p_sup), 'rows=5')
     ) as c(id, descr, actor, kind, sql, expected)
     loop
       v_actor := case t.actor when 'super' then sup when 'admin' then adm when 'teacher' then tch when 'student' then stu when 'admin_b' then adm_b end;

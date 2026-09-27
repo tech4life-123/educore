@@ -86,3 +86,17 @@ test("sendChat reports Stopped when the person aborts", async () => {
   controller.abort();
   assert.deepEqual(await pending, { ok: false, message: "Stopped.", retryable: true });
 });
+
+test("sendChat passes progress lines to onStatus, never into the answer text", async () => {
+  const f = (async () =>
+    new Response(streamOf('{"type":"status","text":"Checking attendance…"}\n{"type":"text","text":"91.4%"}\n{"type":"done"}\n'))) as unknown as typeof fetch;
+  let text = "";
+  const statuses: string[] = [];
+  const r = await sendChat([{ role: "user", content: "hi" }], (c) => (text += c), undefined, f, (s) => statuses.push(s));
+  assert.equal(r.ok, true);
+  assert.equal(text, "91.4%");
+  assert.deepEqual(statuses, ["Checking attendance…"]);
+  // Without a status callback, status lines are simply ignored.
+  const r2 = await sendChat([{ role: "user", content: "hi" }], () => undefined, undefined, f);
+  assert.equal(r2.ok, true);
+});

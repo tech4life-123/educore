@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { handleChat, type ChatDeps, type UsageEvent, type Viewer, type ViewerLookup } from "@/lib/ai/handler";
+import { handleChat, TOOL_LIMITS, type ChatDeps, type ToolBox, type UsageEvent, type Viewer, type ViewerLookup } from "@/lib/ai/handler";
 import type { UsageCounts } from "@/lib/ai/limits";
 import { AiError, type AiProvider, type AiRequest, type AiStreamEvent } from "@/lib/ai/types";
 
-const student: Viewer = { profileId: "p-stu", role: "student", schoolId: "school-a", schoolName: "Harmony Hills High School (Demo)" };
+const student: Viewer = { profileId: "p-stu", role: "student", schoolId: "school-a", schoolName: "Harmony Hills High School (Demo)", firstName: "Ama" };
 
 class FakeProvider implements AiProvider {
   readonly name = "fake";
@@ -45,6 +45,7 @@ function setup(over: Partial<ChatDeps> & { lookup?: ViewerLookup; counts?: Usage
     usage: over.usage === undefined ? { counts: async () => over.counts ?? { userLastMinute: 0, userLastDay: 0, schoolLastDay: 0 }, record: async (e) => void recorded.push(e) } : over.usage,
     limits: { userPerMinute: 6, userPerDay: 60, schoolPerDay: 1000 },
     maxOutputTokens: 800,
+    getTools: over.getTools,
     now: () => 1_000_000,
     log: () => undefined,
   };
@@ -183,4 +184,136 @@ test("usage store outage before the call → 503, nothing sent to the provider",
   const res = await handleChat(req(ask()), s.deps);
   assert.equal(res.status, 503);
   assert.equal(s.provider!.requests.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Data tools (AI-3/AI-4)
+// ---------------------------------------------------------------------------
+
+/** A provider that plays one script per round. */
+class RoundsProvider implements AiProvider {
+  readonly name = "fake";
+  readonly model = "fake-1";
+  requests: AiRequest[] = [];
+  private readonly rounds: AiStreamEvent[][];
+  constructor(rounds: AiStreamEvent[][]) {
+    this.rounds = rounds;
+  }
+  async complete(): Promise<never> {
+    throw new Error("not used");
+  }
+  async *stream(request: AiRequest): AsyncIterable<AiStreamEvent> {
+    // Snapshot: the handler builds a new conversation array per round.
+    this.requests.push({ ...request, messages: [...request.messages] });
+    const script = this.rounds[Math.min(this.requests.length - 1, this.rounds.length - 1)];
+    for (const step of script) yield step;
+  }
+}
+
+const done = (stopReason: "end_turn" | "tool_use", i = 10, o = 5) => ({ type: "done" as const, stopReason, usage: { inputTokens: i, outputTokens: o }, model: "fake-1" });
+const useTool = (n: number, name = "get_student_attendance", input: unknown = {}) => ({ type: "tool_use" as const, id: `call_${n}`, name, input });
+
+function toolbox(runs: { name: string; input: unknown }[] = []): ToolBox {
+  return {
+    definitions: [{ name: "get_student_attendance", description: "attendance", inputSchema: { type: "object", properties: {} } }],
+    async run(name, input) {
+      runs.push({ name, input });
+      return name === "get_student_attendance" ? { ok: true, content: JSON.stringify({ attendance_rate_percent: 91.4 }) } : { ok: false, content: JSON.stringify({ error: "That tool isn't available to this account." }) };
+    },
+    label: () => "Checking attendance…",
+    context: { today: "2026-11-02", yearName: "2026/2027", termName: "First Semester" },
+  };
+}
+
+test("a tool call runs, its result goes back to the model, and the answer streams", async () => {
+  const provider = new RoundsProvider([
+    [{ type: "text", text: "Let me check." }, useTool(1), done("tool_use", 100, 20)],
+    [{ type: "text", text: "Your attendance is 91.4%." }, done("end_turn", 150, 12)],
+  ]);
+  const runs: { name: string; input: unknown }[] = [];
+  const s = setup({ provider, getTools: async () => toolbox(runs) });
+  const res = await handleChat(req(ask("How is my attendance?")), s.deps);
+  const out = await lines(res);
+  assert.deepEqual(out.map((l) => l.type), ["text", "status", "text", "text", "done"]);
+  assert.equal(out[1].text, "Checking attendance…");
+  assert.equal(out[2].text, "\n\n");
+  assert.equal(runs.length, 1);
+
+  // Round 1 offered the tools; round 2 received the tool_use and tool_result.
+  assert.equal(provider.requests[0].tools?.[0].name, "get_student_attendance");
+  const second = provider.requests[1].messages;
+  assert.equal(second.length, 3);
+  const assistant = second[1].content as { type: string }[];
+  assert.deepEqual(assistant.map((b) => b.type), ["text", "tool_use"]);
+  const result = (second[2].content as { type: string; toolUseId: string; content: string; isError?: boolean }[])[0];
+  assert.equal(result.type, "tool_result");
+  assert.equal(result.toolUseId, "call_1");
+  assert.match(result.content, /91.4/);
+  assert.equal(result.isError, false);
+
+  // AI-3 context reached the system prompt; no records did.
+  assert.match(provider.requests[0].system, /Today is 2026-11-02/);
+  assert.match(provider.requests[0].system, /2026\/2027, current semester: First Semester/);
+  assert.match(provider.requests[0].system, /first name is Ama/);
+  assert.doesNotMatch(provider.requests[0].system, /91\.4/);
+
+  const e = s.recorded[0];
+  assert.equal(e.status, "ok");
+  assert.equal(e.toolCalls, 1);
+  assert.deepEqual(e.toolNames, ["get_student_attendance"]);
+  assert.equal(e.inputTokens, 250);
+  assert.equal(e.outputTokens, 32);
+});
+
+test("refused tool calls are passed back as errors for the model to relay", async () => {
+  const provider = new RoundsProvider([
+    [useTool(1, "get_school_performance"), done("tool_use")],
+    [{ type: "text", text: "That isn't available to your account." }, done("end_turn")],
+  ]);
+  const s = setup({ provider, getTools: async () => toolbox() });
+  await (await handleChat(req(ask()), s.deps)).text();
+  const result = (provider.requests[1].messages[2].content as { isError?: boolean; content: string }[])[0];
+  assert.equal(result.isError, true);
+  assert.match(result.content, /isn't available/);
+});
+
+test("the tool loop is bounded: rounds and calls are capped, the last round has no tools", async () => {
+  const provider = new RoundsProvider([[useTool(1), useTool(2), useTool(3), done("tool_use")]]);
+  const runs: { name: string; input: unknown }[] = [];
+  const s = setup({ provider, getTools: async () => toolbox(runs) });
+  const out = await lines(await handleChat(req(ask()), s.deps));
+  assert.ok(provider.requests.length <= TOOL_LIMITS.maxRounds);
+  assert.ok(runs.length <= TOOL_LIMITS.maxToolCalls);
+  // Once the budget is spent, tools stay defined (the history has tool calls) but can't be used,
+  // and any tool call the model still returns is ignored.
+  const offered = provider.requests.map((r) => r.toolChoice);
+  assert.equal(offered[0], "auto");
+  assert.equal(offered[offered.length - 1], "none");
+  assert.ok(provider.requests.every((r) => r.tools?.length));
+  assert.ok(provider.requests.length < TOOL_LIMITS.maxRounds || offered[TOOL_LIMITS.maxRounds - 1] === "none");
+  assert.equal(out[out.length - 1].type, "done");
+  assert.equal(s.recorded[0].toolCalls, runs.length);
+});
+
+test("without tools (or if tool setup fails) the assistant answers without data", async () => {
+  const s = setup({ getTools: async () => { throw new Error("db down"); } });
+  const out = await lines(await handleChat(req(ask()), s.deps));
+  assert.equal(out[out.length - 1].type, "done");
+  const fake = s.provider as FakeProvider;
+  assert.equal(fake.requests[0].tools, undefined);
+  assert.match(fake.requests[0].system, /cannot look up any school records/);
+});
+
+test("tools are prepared only after identity, input and limits pass", async () => {
+  let prepared = 0;
+  const getTools = async () => {
+    prepared++;
+    return toolbox();
+  };
+  await handleChat(req(ask()), setup({ lookup: { status: "unauthenticated" }, getTools }).deps);
+  await handleChat(req({ messages: [] }), setup({ getTools }).deps);
+  await handleChat(req(ask()), setup({ counts: { userLastMinute: 99, userLastDay: 0, schoolLastDay: 0 }, getTools }).deps);
+  assert.equal(prepared, 0);
+  await (await handleChat(req(ask()), setup({ getTools }).deps)).text();
+  assert.equal(prepared, 1);
 });

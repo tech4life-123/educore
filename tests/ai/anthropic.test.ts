@@ -123,3 +123,13 @@ test("complete(): parses text and tool blocks and usage", async () => {
   const r = await p.complete(request);
   assert.deepEqual(r, { content: [{ type: "text", text: "OK" }], stopReason: "end_turn", usage: { inputTokens: 3, outputTokens: 2 }, model: "m2" });
 });
+
+test("tool_choice none keeps tool definitions but disables tool use", async () => {
+  const { buildAnthropicBody } = await import("@/lib/ai/providers/anthropic");
+  const tools = [{ name: "t", description: "d", inputSchema: { type: "object" } }];
+  const off = buildAnthropicBody("m", { system: "s", messages: [{ role: "user", content: "hi" }], tools, toolChoice: "none", maxOutputTokens: 10 }, true);
+  assert.deepEqual((off as { tool_choice?: unknown }).tool_choice, { type: "none" });
+  assert.equal((off as { tools?: unknown[] }).tools?.length, 1);
+  const on = buildAnthropicBody("m", { system: "s", messages: [{ role: "user", content: "hi" }], tools, toolChoice: "auto", maxOutputTokens: 10 }, true);
+  assert.equal("tool_choice" in on, false);
+});

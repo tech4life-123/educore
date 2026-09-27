@@ -56,7 +56,10 @@ export function buildAnthropicBody(model: string, request: AiRequest, stream: bo
     system: request.system,
     messages: request.messages.map((m) => ({ role: m.role, content: toWireContent(m.content) })),
     ...(request.tools?.length
-      ? { tools: request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })) }
+      ? {
+          tools: request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })),
+          ...(request.toolChoice === "none" ? { tool_choice: { type: "none" } } : {}),
+        }
       : {}),
     ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
     ...(stream ? { stream: true } : {}),
