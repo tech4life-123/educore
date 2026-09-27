@@ -191,7 +191,23 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 - **Authorization:** every reset still goes through `require_password_change()` first.
 - **Delivery:** new passwords are shown once, as printable slips or a CSV, and are never stored.
 
-## 13. Security decisions log
+## 13. Attendance (milestone 6)
+
+**Model.**
+- `attendance_registers` holds one register per class per day, recording who took it and when.
+- `attendance_records` holds one mark per student: present, absent, late or excused, with an optional note.
+- A record's class and date are always copied from its register by a trigger, so the two can't disagree.
+
+**Rules** (database-enforced):
+- Only the class's homeroom teacher or an admin takes or edits a register (`private.can_take_register`).
+- Teachers of the class (homeroom teacher or subject teacher) and admins can read the register (`private.teaches_class`).
+- Students read their own marks, and parents read their linked children's.
+- A register can't be dated in the future in the school's time zone, or outside the academic year.
+- Only enrolled students can be marked.
+
+**Rate.** The attendance rate is (present + late) ÷ (present + late + absent); excused days don't count against the student. The rate is compared with `school_settings.attendance_threshold`. When report cards are issued, each semester's attendance is added to the snapshot.
+
+## 14. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -220,3 +236,4 @@ Grades are computed on read from raw scores, never stored, so a correction can't
 | 23 | Grades computed from raw scores on read | One source of truth; corrections propagate everywhere immediately. |
 | 24 | Report cards stored as issued snapshots, readable per student | Ranks can be shown to families without exposing classmates' scores. |
 | 25 | Bulk reset re-validates targets server-side at confirm time | A tampered or stale confirmation list can't reset accounts outside the chosen group. |
+| 26 | Attendance class/date derived from the register by trigger | A mark can never be filed against another class or day than its register. |
