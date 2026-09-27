@@ -116,3 +116,20 @@ dialog::backdrop {
   size: A4;
   margin: 12mm;
 }
+
+/* Printable statistics report: compact tables that fit A4 portrait. */
+.statistics-report table {
+  min-width: 0;
+  font-size: 11px;
+}
+.statistics-report th,
+.statistics-report td {
+  padding: 4px 6px;
+}
+.statistics-report thead {
+  background: #f1f1f1;
+  color: #333;
+}
+.statistics-report tr {
+  break-inside: avoid;
+}

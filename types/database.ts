@@ -1620,6 +1620,40 @@ export type Database = {
         }
         Returns: string
       }
+      platform_school_statistics: {
+        Args: never
+        Returns: {
+          admins: number
+          att_absent: number
+          att_excused: number
+          att_late: number
+          att_present: number
+          classes: number
+          code: string
+          county: string
+          created_at: string
+          current_year: string
+          enrolled: number
+          female: number
+          graded_students: number
+          male: number
+          name: string
+          passed: number
+          passing_score: number
+          school_id: string
+          school_type: Database["public"]["Enums"]["school_type"]
+          status: Database["public"]["Enums"]["school_status"]
+          students: number
+          teachers: number
+        }[]
+      }
+      platform_set_school_status: {
+        Args: {
+          p_school_id: string
+          p_status: Database["public"]["Enums"]["school_status"]
+        }
+        Returns: Database["public"]["Enums"]["school_status"]
+      }
       require_password_change: {
         Args: { p_profile_id: string }
         Returns: string

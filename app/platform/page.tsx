@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -8,16 +9,9 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { schoolTypeLabel } from "@/lib/format";
 import { requireSuperAdmin } from "@/services/auth";
 import { listSchoolsForPlatform } from "@/services/platform";
-import type { Enums } from "@/types/database";
+import { STATUS_LABEL, STATUS_TONE } from "@/lib/platform-stats";
 
 export const metadata: Metadata = { title: "Platform" };
-
-const STATUS_TONE: Record<Enums<"school_status">, "success" | "warning" | "danger" | "neutral"> = {
-  active: "success",
-  pending: "warning",
-  suspended: "danger",
-  archived: "neutral",
-};
 
 export default async function PlatformPage() {
   const { profile } = await requireSuperAdmin();
@@ -74,14 +68,16 @@ export default async function PlatformPage() {
               <TBody>
                 {result.schools.map((school) => (
                   <TR key={school.id}>
-                    <TD className="font-medium">{school.name}</TD>
+                    <TD>
+                      <Link href={`/platform/schools/${school.id}`} className="font-medium text-foreground underline-offset-4 hover:underline">
+                        {school.name}
+                      </Link>
+                    </TD>
                     <TD>{school.code}</TD>
                     <TD>{schoolTypeLabel(school.school_type)}</TD>
                     <TD>{school.county ?? "—"}</TD>
                     <TD>
-                      <Badge tone={STATUS_TONE[school.status]}>
-                        {school.status.charAt(0).toUpperCase() + school.status.slice(1)}
-                      </Badge>
+                      <Badge tone={STATUS_TONE[school.status]}>{STATUS_LABEL[school.status]}</Badge>
                     </TD>
                   </TR>
                 ))}

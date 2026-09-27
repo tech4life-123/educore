@@ -139,6 +139,7 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_student_staff_profiles.sql` | Student records (admission number, DOB, gender, address, emergency contact) and staff records; admin-only writes; need-to-know reads |
 | `…_announcements.sql` | Announcements (everyone / staff / students / parents / one class), scheduling, expiry, pinning, read receipts; RLS by audience |
 | `…_attendance.sql` | Attendance registers and marks; RLS (homeroom/admin write, class teachers read, self/parent read); date and enrolment checks |
+| `…_platform_tools.sql` | `platform_set_school_status` (suspend / reactivate / archive) and `platform_school_statistics` (per-school aggregates); super admins only |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
 
@@ -164,7 +165,7 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) and `supabase/tests/announcements.sql` (27 checks: who may post to which audience, who sees what, scheduling/expiry, read receipts) work the same way.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) `supabase/tests/grades.sql` (39 checks: who may grade, who may see scores, submission and publishing locks) `supabase/tests/report_cards.sql` (27 checks: who issues, who sees cards and remarks, promotion overrides) `supabase/tests/attendance.sql` (23 checks: who takes registers, who sees marks, date rules) `supabase/tests/people_profiles.sql` (19 checks: who may see and edit student and staff records) `supabase/tests/announcements.sql` (27 checks: who may post to which audience, who sees what, scheduling/expiry, read receipts) and `supabase/tests/platform.sql` (31 checks: statistics figures and access, suspending/archiving a school, adding administrators) work the same way.
 
 ## Deployment (Vercel)
 
@@ -187,6 +188,7 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 5. ~~Report cards (printable, per student and per class)~~ ✅
 6. ~~Attendance~~ ✅
 7. ~~Announcements and notifications~~ ✅
-8. Parent portal.
-9. Reports and analytics.
-10. University support (faculties, programmes, credit hours, GPA).
+8. ~~Platform tools — school status, administrators, cross-school statistics by county~~ ✅
+9. Parent portal.
+10. Reports and analytics.
+11. University support (faculties, programmes, credit hours, GPA).

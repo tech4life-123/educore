@@ -8,6 +8,7 @@ import { signOut } from "@/app/(auth)/login/actions";
 
 const PLATFORM_NAVIGATION: readonly NavItem[] = [
   { label: "Schools", href: "/platform", icon: "platform", available: true, roles: [] },
+  { label: "Statistics", href: "/platform/statistics", icon: "reports", available: true, roles: [] },
 ];
 
 export default async function PlatformLayout({ children }: LayoutProps<"/platform">) {

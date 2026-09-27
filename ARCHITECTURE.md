@@ -101,7 +101,7 @@ A naive design (`role = 'super_admin'` → RLS grants everything) would hand eve
 3. **Privileged, server-only query.** Only after that check does `services/platform.ts` use `createAdminClient()` (service-role key) to run a specific, read-only cross-tenant query. The result is rendered to HTML on the server; the key and raw client never reach the browser.
 4. **Key isolation.** `SUPABASE_SERVICE_ROLE_KEY` has no `NEXT_PUBLIC_` prefix (never inlined into client bundles) and `lib/supabase/admin.ts` imports `server-only`, so the build fails if any Client Component imports it (verified).
 
-Future platform write operations (creating schools, assigning admins) must follow the same pattern: Server Action → `requireSuperAdmin()` → validated input → narrowly scoped admin query → audit entry.
+Platform write operations follow the same pattern: Server Action → `requireSuperAdmin()` → validated input → authorization again inside the database (a SECURITY DEFINER function that checks `current_app_role() = 'super_admin'` first) → narrowly scoped change → audit entry. See section 16 for the milestone 9 tools.
 
 ## 8. Server / client boundaries
 
@@ -227,7 +227,15 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 
 **Unread markers.** `announcement_reads` records one row per person per post; the database sets the `profile_id`, and a read can only be recorded for a post the person can see. These rows drive the unread dot, the bell badge and the dashboard card. Reads are not audited (high volume, low value); announcements themselves are.
 
-## 16. Security decisions log
+## 16. Platform tools (milestone 9)
+
+**School status.** `platform_set_school_status` (super admins only) moves a school between active, suspended and archived; `pending` can't be set by hand. Suspending needs no per-user work: `current_school_id()` already returns nothing for a school that isn't active, so every RLS policy stops matching at once and nothing is deleted. Archived schools also refuse new accounts (`assert_can_manage_school`). Each change is recorded by the existing `schools_audit` trigger with the super admin as actor.
+
+**Administrators.** `/platform/schools/[id]` lists a school's administrators (service-role read after `requireSuperAdmin()`), adds new ones through the same `createMember` path as school onboarding, and can reset an administrator's password or suspend/reactivate the account. The action first confirms the target is an administrator of *that* school, then the existing database functions authorize the change again.
+
+**Statistics.** `platform_school_statistics()` returns one row of counts per school — never individual records: active students (girls / boys), enrolments, teachers, administrators, classes, attendance marks in the current year, and students passing on their latest issued report card of the year. The app sums counts and recomputes rates (so larger schools weigh more), groups by county, and offers a CSV export (formula-safe) and an A4 printable report. It is called with the super admin's own session, so the database, not the app, decides who may run it.
+
+## 17. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -258,3 +266,5 @@ The Students directory shows admins everyone. It shows a teacher only the studen
 | 25 | Bulk reset re-validates targets server-side at confirm time | A tampered or stale confirmation list can't reset accounts outside the chosen group. |
 | 26 | Attendance class/date derived from the register by trigger | A mark can never be filed against another class or day than its register. |
 | 27 | Student personal details readable only by admins, the student's teachers, the student and linked parents | Dates of birth, addresses and emergency contacts are need-to-know. |
+| 28 | Platform statistics are aggregates computed in a super-admin-only database function | The Ministry view never needs a student's record; returning only counts keeps personal data inside each school. |
+| 29 | School status changed only through `platform_set_school_status`, which re-checks the caller's role | A forged request to the app can't suspend or archive a school; the audit trail names who did it. |
