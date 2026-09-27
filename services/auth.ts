@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { ConfigurationError } from "@/lib/env";
@@ -59,6 +60,10 @@ const SCHOOL_COLUMNS =
   "id, name, code, motto, logo_url, primary_color, secondary_color, school_type, city, county, country" as const;
 
 export const getAuthContext = cache(async (): Promise<AuthContext> => {
+  // Identity is always per-request: never let a protected page be prerendered,
+  // even when the build environment has no Supabase settings.
+  await connection();
+
   let supabase;
   try {
     supabase = await createClient();
