@@ -286,6 +286,139 @@ export type Database = {
           },
         ]
       }
+      attendance_records: {
+        Row: {
+          class_id: string
+          created_at: string
+          date: string
+          id: string
+          note: string | null
+          recorded_by: string | null
+          register_id: string
+          school_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          date: string
+          id?: string
+          note?: string | null
+          recorded_by?: string | null
+          register_id: string
+          school_id: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          note?: string | null
+          recorded_by?: string | null
+          register_id?: string
+          school_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_class_fkey"
+            columns: ["class_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "attendance_records_recorded_by_fkey"
+            columns: ["recorded_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "attendance_records_register_fkey"
+            columns: ["register_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_registers"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "attendance_records_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_student_fkey"
+            columns: ["student_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
+      attendance_registers: {
+        Row: {
+          class_id: string
+          created_at: string
+          date: string
+          id: string
+          school_id: string
+          taken_at: string
+          taken_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          date: string
+          id?: string
+          school_id: string
+          taken_at?: string
+          taken_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          school_id?: string
+          taken_at?: string
+          taken_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_registers_class_fkey"
+            columns: ["class_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "attendance_registers_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_registers_taken_by_fkey"
+            columns: ["taken_by", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1270,6 +1403,7 @@ export type Database = {
         | "teacher"
         | "student"
         | "parent"
+      attendance_status: "present" | "absent" | "late" | "excused"
       enrollment_status: "active" | "withdrawn" | "transferred" | "completed"
       profile_status: "invited" | "active" | "suspended" | "inactive"
       school_stage:
@@ -1417,6 +1551,7 @@ export const Constants = {
     Enums: {
       academic_system: ["semester", "trimester", "quarter", "term"],
       app_role: ["super_admin", "school_admin", "teacher", "student", "parent"],
+      attendance_status: ["present", "absent", "late", "excused"],
       enrollment_status: ["active", "withdrawn", "transferred", "completed"],
       profile_status: ["invited", "active", "suspended", "inactive"],
       school_stage: [
