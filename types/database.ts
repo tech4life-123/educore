@@ -109,6 +109,119 @@ export type Database = {
           },
         ]
       }
+      announcement_reads: {
+        Row: {
+          announcement_id: string
+          id: string
+          profile_id: string
+          read_at: string
+          school_id: string
+        }
+        Insert: {
+          announcement_id: string
+          id?: string
+          profile_id: string
+          read_at?: string
+          school_id: string
+        }
+        Update: {
+          announcement_id?: string
+          id?: string
+          profile_id?: string
+          read_at?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_reads_announcement_fkey"
+            columns: ["announcement_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "announcement_reads_profile_fkey"
+            columns: ["profile_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "announcement_reads_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          audience: Database["public"]["Enums"]["announcement_audience"]
+          author_id: string | null
+          body: string
+          class_id: string | null
+          created_at: string
+          expires_on: string | null
+          id: string
+          pinned: boolean
+          publish_at: string
+          school_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          author_id?: string | null
+          body: string
+          class_id?: string | null
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          pinned?: boolean
+          publish_at?: string
+          school_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          author_id?: string | null
+          body?: string
+          class_id?: string | null
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          pinned?: boolean
+          publish_at?: string
+          school_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_author_fkey"
+            columns: ["author_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "announcements_class_fkey"
+            columns: ["class_id", "school_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id", "school_id"]
+          },
+          {
+            foreignKeyName: "announcements_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_categories: {
         Row: {
           created_at: string
@@ -1529,6 +1642,7 @@ export type Database = {
     }
     Enums: {
       academic_system: "semester" | "trimester" | "quarter" | "term"
+      announcement_audience: "everyone" | "staff" | "students" | "parents" | "class"
       app_role:
         | "super_admin"
         | "school_admin"
@@ -1682,6 +1796,7 @@ export const Constants = {
   public: {
     Enums: {
       academic_system: ["semester", "trimester", "quarter", "term"],
+      announcement_audience: ["everyone", "staff", "students", "parents", "class"],
       app_role: ["super_admin", "school_admin", "teacher", "student", "parent"],
       attendance_status: ["present", "absent", "late", "excused"],
       enrollment_status: ["active", "withdrawn", "transferred", "completed"],
