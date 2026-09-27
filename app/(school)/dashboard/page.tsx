@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icons } from "@/components/ui/icons";
+import { SetupChecklist } from "@/components/dashboard/setup-checklist";
 import { SchoolLogo } from "@/components/shell/school-logo";
 import { ROLE_LABELS, type SchoolRole } from "@/lib/auth/roles";
 import { locationLine, schoolTypeLabel } from "@/lib/format";
 import { navigationFor } from "@/lib/navigation";
 import { requireSchoolMember } from "@/services/auth";
+import { getSetupCounts } from "@/services/classes";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -18,6 +20,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { denied, password } = await searchParams;
   const role = profile.role as SchoolRole;
   const upcoming = navigationFor(role).filter((item) => !item.available);
+  const setup = role === "school_admin" ? await getSetupCounts(school.id) : null;
 
   return (
     <div className="space-y-6">
@@ -40,6 +43,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           Signed in as {ROLE_LABELS[role]} at {school.name}.
         </p>
       </div>
+
+      {setup ? <SetupChecklist counts={setup} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1" aria-labelledby="school-card-title">

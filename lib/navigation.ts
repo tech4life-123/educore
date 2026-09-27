@@ -25,10 +25,10 @@ const ALL: readonly SchoolRole[] = ["school_admin", "teacher", "student", "paren
 export const SCHOOL_NAVIGATION: readonly NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard", available: true, roles: ALL },
   { label: "User accounts", href: "/users", icon: "user", available: true, roles: ["school_admin"] },
+  { label: "Academic setup", href: "/academics", icon: "subjects", available: true, roles: ["school_admin"] },
   { label: "Students", href: "/students", icon: "students", available: false, roles: ["school_admin", "teacher"] },
   { label: "Teachers", href: "/teachers", icon: "teachers", available: false, roles: ["school_admin"] },
-  { label: "Classes", href: "/classes", icon: "classes", available: false, roles: ["school_admin", "teacher"] },
-  { label: "Subjects", href: "/subjects", icon: "subjects", available: false, roles: ["school_admin", "teacher", "student"] },
+  { label: "Classes", href: "/classes", icon: "classes", available: true, roles: ["school_admin", "teacher"] },
   { label: "Attendance", href: "/attendance", icon: "attendance", available: false, roles: ALL },
   { label: "Assessments", href: "/assessments", icon: "assessments", available: false, roles: ["school_admin", "teacher"] },
   { label: "Examinations", href: "/examinations", icon: "examinations", available: false, roles: ["school_admin", "teacher"] },

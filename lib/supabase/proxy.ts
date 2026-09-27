@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 import { getSupabasePublicKey, getSupabaseUrl } from "@/lib/env";
 
-export const PROTECTED_PREFIXES = ["/dashboard", "/platform", "/settings", "/account", "/users", "/change-password"] as const;
+export const PROTECTED_PREFIXES = ["/dashboard", "/platform", "/settings", "/account", "/users", "/academics", "/classes", "/change-password"] as const;
 
 export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

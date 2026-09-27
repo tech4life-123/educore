@@ -10,7 +10,9 @@ import { displayLoginId } from "@/lib/auth/login-id";
 import { fullName } from "@/lib/format";
 import { currentSiteUrl } from "@/lib/site-url";
 import { requireCapability } from "@/services/auth";
+import { listGuardianLinks, listPeopleByRole } from "@/services/classes";
 import { getMember } from "@/services/members";
+import { FamilyCard } from "./family-card";
 import { MemberActions } from "./member-actions";
 
 export const metadata: Metadata = { title: "User" };
@@ -24,6 +26,13 @@ export default async function UserDetailPage({ params }: PageProps<"/users/[id]"
   const name = fullName(member);
   const loginId = displayLoginId(member, school.code);
   const isSelf = member.id === profile.id;
+  const familySide = member.role === "parent" ? "children" : member.role === "student" ? "parents" : null;
+  const [links, candidates] = familySide
+    ? await Promise.all([
+        listGuardianLinks(school.id, member.id, familySide),
+        listPeopleByRole(school.id, familySide === "children" ? "student" : "parent"),
+      ])
+    : [[], []];
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -77,6 +86,10 @@ export default async function UserDetailPage({ params }: PageProps<"/users/[id]"
           </dl>
         </CardBody>
       </Card>
+
+      {familySide ? (
+        <FamilyCard side={familySide} profileId={member.id} links={links} candidates={candidates} schoolCode={school.code} />
+      ) : null}
 
       <Card aria-labelledby="manage-title">
         <CardHeader
