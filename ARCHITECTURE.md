@@ -53,7 +53,7 @@ Three independent layers; each would still hold if the one above it failed.
 
 | Layer | Where | What it does |
 | --- | --- | --- |
-| 1. Proxy | `proxy.ts` | Optimistic: signed-out requests to `/dashboard`, `/platform`, `/settings`, `/account` → `/login?next=…`. Not trusted for authorization. |
+| 1. Proxy | `proxy.ts` | Optimistic: signed-out requests to protected prefixes (`/dashboard`, `/platform`, `/settings`, `/account`, `/users`, `/academics`, `/classes`, `/change-password`) → `/login?next=…`. Not trusted for authorization. |
 | 2. Server guards | `services/auth.ts` | `requireSchoolMember`, `requireSuperAdmin`, `requireCapability` called in layouts **and** pages/actions (layouts don't re-run on client navigation). |
 | 3. Database | RLS + privileges | Final authority. Applies to every query made with a user session, from any client. |
 
@@ -134,7 +134,21 @@ These functions are `SECURITY DEFINER` with an empty `search_path`, and they der
 
 **Bulk import.** CSV only (no spreadsheet library), up to 100 rows / 200 KB. Step 1 validates without creating anything. On confirm, the server re-parses and re-validates the original file rather than trusting rows sent back by the browser. Accounts are then created 4 at a time, and the credentials sheet is built in the browser for download or printing; it is never stored. CSV output escapes formula-injection characters.
 
-## 10. Security decisions log
+## 10. Branding & academic structure (milestone 3)
+
+**Branding.** School admins edit the school profile, colours and academic settings from `/settings` using their own session; the existing column grants decide what they may change (not `code`, `slug`, `school_type` or `status`). Logos go to the public `school-logos` bucket at `<school_id>/logo-<timestamp>.<ext>`. Storage policies allow insert/read/delete only inside the caller's own school folder and only for school admins. The bucket accepts PNG/JPEG/WebP up to 1 MB. The server also checks the file's magic bytes, so SVG (which can carry script) is never accepted. The old logo object is deleted after the new URL is saved.
+
+**Calendar model.** `academic_years` → `academic_terms` (semesters) → `grading_periods` (`marking_period` or `exam`). `create_academic_year(..., 'liberia', ...)` builds the Liberian standard atomically: 2 semesters × (3 marking periods + a semester exam) with evenly spread, editable dates. At most one year per school is current (partial unique index).
+
+**Classes & enrolment.** A class belongs to one year and one grade level and has an optional homeroom teacher. `class_subjects` holds the subject taught in the class and its teacher. `enrollments` allows one class per student per year (unique `(student_id, academic_year_id)`), and the year is always copied from the class by a trigger. Every child table references its parent by `(id, school_id)` composite foreign keys, so a row can never point into another school, even if a policy were wrong. Triggers check roles: homeroom and subject teachers must be staff, the enrolled person must be a student, a guardian must be a parent and the child a student.
+
+**Who sees what.** Structural tables (years, terms, periods, grades, subjects, classes, class subjects) are readable by every active member of the school. Enrolments are readable by staff, the student themself, and parents linked to that student. Guardian links are readable by staff and the two people on the link. Only school admins can write, through one policy per command. Subjects are deactivated rather than deleted, and deleting a class or year that has enrolments fails (`RESTRICT`), so future grades keep their references.
+
+**Ordering.** Grade order is `unique (school_id, sequence)` and `DEFERRABLE`, so `move_grade_level()` can swap two rows atomically. Deferrable constraints can't be `ON CONFLICT` arbiters, so the seeder uses `NOT EXISTS`.
+
+**Atomic setup RPCs** (`create_academic_year`, `set_current_academic_year`, `add_standard_subjects`, `move_grade_level`) are `SECURITY INVOKER`. They run with the caller's rights, so RLS still decides, and they re-check that the caller is a school admin.
+
+## 11. Security decisions log
 
 | # | Decision | Rationale |
 | --- | --- | --- |
@@ -154,3 +168,7 @@ These functions are `SECURITY DEFINER` with an empty `search_path`, and they der
 | 14 | Admin-set one-time passwords + forced change | Works without any email service; admins never learn the final password. |
 | 15 | DB-side authorization for member RPCs, service role only after | A bug in app code can't let one school's admin manage another school's users. |
 | 16 | Suspension = profile status (RLS cut-off) **and** Auth ban | Data access stops immediately; sign-in and token refresh stop too. |
+| 17 | Composite `(id, school_id)` foreign keys on all academic tables | Cross-school references are impossible at the schema level, independent of RLS. |
+| 18 | Role-check triggers on classes, class subjects, enrolments, guardian links | A student can't be made a teacher, a parent can't be enrolled, etc. — even by an admin. |
+| 19 | Logo uploads: bucket MIME/size limits + server-side magic-byte check, no SVG, per-school folder policies | Prevents script-bearing images and cross-school overwrites. |
+| 20 | Academic writes use the caller's session, never the service role | The database alone decides; there is no privileged path to misuse. |

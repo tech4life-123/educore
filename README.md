@@ -4,7 +4,7 @@
 
 EduCore is a multi-tenant school management platform. A single deployment serves many schools; each school sees only its own data, enforced by PostgreSQL Row Level Security. The first target market is high schools in Liberia; the data model deliberately avoids assumptions that would block colleges and universities later.
 
-> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). Academic modules come next; see [Roadmap](#roadmap).
+> **Milestones done:** 1. Foundation (auth, tenants, roles, RLS, audit, branded shell). 2. School onboarding & user management (username or email logins, one-time passwords, CSV import, suspend/reset, platform "add school"). 3. School branding & academic structure (logo, colours, settings; academic years with the Liberian 2 × (3 periods + exam) calendar; grade levels Nursery–12; subjects; classes, subject teachers, enrolment; parent ↔ child links; setup checklist). Attendance comes next; see [Roadmap](#roadmap).
 
 ---
 
@@ -26,8 +26,11 @@ Runtime dependencies beyond Next/React: `@supabase/ssr`, `@supabase/supabase-js`
 app/
   (auth)/login/        Sign-in page, form and server actions (signIn / signOut)
   (school)/            School area — shared branded shell (layout.tsx)
-    dashboard/         Landing page for school users
-    settings/          Own-profile editing, read-only school configuration
+    dashboard/         Landing page (admins also get a setup checklist)
+    settings/          Own profile; admins: logo upload, school profile & colours, academic settings
+    users/             User accounts, bulk import, parent ↔ child links
+    academics/         Academic years & marking periods, grade levels, subjects (admins)
+    classes/           Classes, subject teachers, enrolment (admins edit; teachers view)
   platform/            Super-admin area (server-side privileged access)
   account/             Explains blocked access (no profile, suspended, …)
 components/
@@ -37,11 +40,11 @@ lib/
   supabase/            client.ts (browser) · server.ts (RLS-bound) · admin.ts (service role, server-only) · proxy.ts
   auth/                roles & capabilities, safe redirect helper
   env.ts, branding.ts, navigation.ts, format.ts
-services/              Server-only data access: auth.ts (guards), school.ts, platform.ts
+services/              Server-only data access: auth.ts (guards), school.ts, members.ts, academics.ts, classes.ts, platform.ts
 types/database.ts      Generated Supabase types
 supabase/
   migrations/          Reproducible schema, RLS and audit migrations
-  tests/               tenant_isolation.sql — 37-case security test (self-cleaning)
+  tests/               tenant_isolation.sql (37), user_management.sql (28), academics.sql (48) — self-cleaning security tests
   snippets/            attach_profile.sql — provision users
   seed.sql             Local-only demo data ("Demo School")
 proxy.ts               Session refresh + optimistic route protection
@@ -116,6 +119,10 @@ Public sign-up stays disabled. The `SUPABASE_SERVICE_ROLE_KEY` environment varia
 | `…_audit_triggers.sql` | Append-only audit logging on schools, school_settings, profiles |
 | `…_security_hardening.sql` | Advisor fixes: revoke RPC execute on a platform helper, merge profile SELECT policies |
 | `…_user_management.sql` | `profiles.username/email/must_change_password`; `create_member`, `set_member_status`, `require_password_change`, `platform_create_school` |
+| `…_academic_structure.sql` | Academic years, semesters, grading periods, grade levels (seeded Nursery–12 per school), subjects, classes, class subjects, enrolments, guardian links; RLS; `create_academic_year`, `set_current_academic_year`, `add_standard_subjects`; `school-logos` storage bucket and policies |
+| `…_academic_indexes.sql` | Indexes covering the composite foreign keys |
+| `…_grade_level_ordering.sql` | Deferrable grade-order constraint; `move_grade_level` (atomic reorder) |
+| `…_seed_grade_levels_without_on_conflict.sql` | Grade-level seeder compatible with the deferrable constraint |
 
 Schema changes must always be made through new migration files — never only in the dashboard. After changing the schema, run `npm run db:types`.
 
@@ -141,7 +148,7 @@ Schema changes must always be made through new migration files — never only in
 psql "$DATABASE_URL" -f supabase/tests/tenant_isolation.sql
 ```
 
-or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` works the same way and adds 28 checks for the user-management functions.
+or paste the file into the Supabase SQL editor. It creates throwaway tenants/users, runs 37 checks as the real `authenticated`/`anon` roles, prints PASS/FAIL per case, and rolls everything back. `supabase/tests/user_management.sql` (28 checks) and `supabase/tests/academics.sql` (48 checks: academic structure, classes, enrolment, parent links, logo storage) work the same way.
 
 ## Deployment (Vercel)
 
@@ -158,8 +165,8 @@ Foundation — complete except for items marked NOT VERIFIED in the milestone re
 ## Roadmap
 
 1. ~~School onboarding & user management~~ ✅
-2. School settings & branding editor (logo upload, colours, academic settings)
-3. Academic structure — academic years/terms, classes, subjects, enrolment.
+2. ~~School settings & branding editor (logo upload, colours, academic settings)~~ ✅
+3. ~~Academic structure — academic years/terms, classes, subjects, enrolment, parent links~~ ✅
 4. Attendance.
 5. Assessments, examinations and grades.
 6. Report cards.
