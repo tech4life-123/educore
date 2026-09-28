@@ -87,7 +87,10 @@ begin
       ('D03','Audit trail records the enrollment',              'postgres','count', format($q$select 1 from public.audit_logs where action = 'enrollments.insert' and user_id = %L$q$, adm_a), 'rows=1'),
       ('F01','Admin A uploads into own logo folder',            'admin_a', 'exec',  format($q$insert into storage.objects (bucket_id, name) values ('school-logos', %L)$q$, a || '/logo-test.png'), 'affected=1'),
       ('F02','Admin A uploads into School B''s folder',         'admin_a', 'exec',  format($q$insert into storage.objects (bucket_id, name) values ('school-logos', %L)$q$, b || '/logo-evil.png'), 'denied'),
-      ('F03','Teacher uploads a logo',                          'teacher_a','exec', format($q$insert into storage.objects (bucket_id, name) values ('school-logos', %L)$q$, a || '/logo-t.png'), 'denied')
+      ('F03','Teacher uploads a logo',                          'teacher_a','exec', format($q$insert into storage.objects (bucket_id, name) values ('school-logos', %L)$q$, a || '/logo-t.png'), 'denied'),
+      ('F04','Admin A uploads into own background folder',      'admin_a', 'exec',  format($q$insert into storage.objects (bucket_id, name) values ('school-backgrounds', %L)$q$, a || '/bg-test.png'), 'affected=1'),
+      ('F05','Admin A uploads into School B''s background folder','admin_a', 'exec', format($q$insert into storage.objects (bucket_id, name) values ('school-backgrounds', %L)$q$, b || '/bg-evil.png'), 'denied'),
+      ('F06','Teacher uploads a background image',              'teacher_a','exec', format($q$insert into storage.objects (bucket_id, name) values ('school-backgrounds', %L)$q$, a || '/bg-t.png'), 'denied')
     ) as c(id, descr, actor, kind, sql, expected)
     loop
       v_actor := case t.actor when 'admin_a' then adm_a when 'teacher_a' then tch_a when 'student_a1' then stu_a1

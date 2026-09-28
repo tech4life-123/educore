@@ -42,6 +42,7 @@ export type SchoolProfileView = Pick<
   | "email"
   | "website"
   | "logo_url"
+  | "cover_image_url"
   | "primary_color"
   | "secondary_color"
   | "timezone"
@@ -54,7 +55,7 @@ export const getSchoolProfile = cache(async (schoolId: string): Promise<SchoolPr
   const { data, error } = await supabase
     .from("schools")
     .select(
-      "id, name, code, motto, address, city, county, country, phone, email, website, logo_url, primary_color, secondary_color, timezone, is_demo",
+      "id, name, code, motto, address, city, county, country, phone, email, website, logo_url, cover_image_url, primary_color, secondary_color, timezone, is_demo",
     )
     .eq("id", schoolId)
     .maybeSingle();

@@ -47,6 +47,7 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
       }}
       navigation={navigationFor(role)}
       signOutAction={signOut}
+      backgroundImageUrl={profile.show_school_background ? school.cover_image_url : null}
       assistant={
         getAiConfig().enabled ? <AssistantLauncher suggestions={suggestionsFor(role)} dataAccess={AI_DATA_TOOLS_AVAILABLE} /> : null
       }

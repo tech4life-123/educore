@@ -331,3 +331,146 @@ export async function removeSchoolLogo(): Promise<SchoolFormState> {
     message: "Logo removed. Your school’s initials are shown instead.",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Background image — shown, blurred, behind every portal for everyone in
+// this school. Mirrors the logo upload/remove actions above exactly, against
+// the separate "school-backgrounds" bucket and the cover_image_url column.
+// ---------------------------------------------------------------------------
+
+const BG_BUCKET = "school-backgrounds";
+const MAX_BG_BYTES = 3 * 1024 * 1024;
+
+/** Path of an object in our background bucket inside this school's folder, or null. */
+function ownBackgroundPath(url: string | null, schoolId: string): string | null {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${BG_BUCKET}/`;
+  const i = url.indexOf(marker);
+  if (i < 0) return null;
+  const path = decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+  return path.startsWith(`${schoolId}/`) && !path.includes("..") ? path : null;
+}
+
+export async function uploadSchoolBackground(_prev: SchoolFormState, formData: FormData): Promise<SchoolFormState> {
+  const { school } = await requireCapability("school.manage", "/settings");
+
+  const file = formData.get("background");
+  if (!(file instanceof File) || file.size === 0) {
+    return {
+      status: "error",
+      message: "Choose an image file first.",
+      fieldErrors: { background: "Choose an image file." },
+    };
+  }
+  if (file.size > MAX_BG_BYTES) {
+    return {
+      status: "error",
+      message: "That image is larger than 3 MB.",
+      fieldErrors: { background: "Use an image under 3 MB." },
+    };
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = sniffImage(bytes);
+  if (!kind) {
+    return {
+      status: "error",
+      message: "Only PNG, JPEG or WebP images can be used as a background.",
+      fieldErrors: { background: "Use a PNG, JPEG or WebP image." },
+    };
+  }
+
+  const path = `${school.id}/background-${Date.now()}.${kind.ext}`;
+
+  try {
+    const supabase = await createClient();
+
+    // Current background (to clean up afterwards). RLS: own school only.
+    const { data: current } = await supabase
+      .from("schools")
+      .select("cover_image_url")
+      .eq("id", school.id)
+      .maybeSingle();
+
+    // Storage policies allow this only for a school admin writing into their own school's folder.
+    const { error: uploadError } = await supabase.storage.from(BG_BUCKET).upload(path, bytes, {
+      contentType: kind.type,
+      upsert: false,
+      cacheControl: "31536000",
+    });
+    if (uploadError) {
+      console.error("[settings] background upload failed", uploadError.name);
+      return {
+        status: "error",
+        message: "The background image couldn’t be uploaded. Please try again.",
+      };
+    }
+
+    const publicUrl = supabase.storage.from(BG_BUCKET).getPublicUrl(path).data.publicUrl;
+    const { data, error } = await supabase
+      .from("schools")
+      .update({ cover_image_url: publicUrl })
+      .eq("id", school.id)
+      .select("id");
+
+    if (error || !data || data.length !== 1) {
+      console.error("[settings] cover_image_url update failed", error?.code ?? "no-row");
+      await supabase.storage.from(BG_BUCKET).remove([path]);
+      return {
+        status: "error",
+        message: "The background image couldn’t be saved. Please try again.",
+      };
+    }
+
+    const oldPath = ownBackgroundPath(current?.cover_image_url ?? null, school.id);
+    if (oldPath && oldPath !== path) {
+      const { error: removeError } = await supabase.storage.from(BG_BUCKET).remove([oldPath]);
+      if (removeError) console.warn("[settings] old background cleanup failed", removeError.name);
+    }
+  } catch {
+    return unreachable();
+  }
+
+  revalidatePath("/", "layout");
+  return {
+    status: "success",
+    message: "New background saved. It now shows, blurred, across every portal in your school.",
+  };
+}
+
+// Called through useActionState; the previous state and form data are not needed.
+export async function removeSchoolBackground(): Promise<SchoolFormState> {
+  const { school } = await requireCapability("school.manage", "/settings");
+
+  try {
+    const supabase = await createClient();
+    const { data: current } = await supabase
+      .from("schools")
+      .select("cover_image_url")
+      .eq("id", school.id)
+      .maybeSingle();
+
+    const { data, error } = await supabase
+      .from("schools")
+      .update({ cover_image_url: null })
+      .eq("id", school.id)
+      .select("id");
+    if (error || !data || data.length !== 1) {
+      console.error("[settings] background removal failed", error?.code ?? "no-row");
+      return {
+        status: "error",
+        message: "The background image couldn’t be removed. Please try again.",
+      };
+    }
+
+    const oldPath = ownBackgroundPath(current?.cover_image_url ?? null, school.id);
+    if (oldPath) await supabase.storage.from(BG_BUCKET).remove([oldPath]);
+  } catch {
+    return unreachable();
+  }
+
+  revalidatePath("/", "layout");
+  return {
+    status: "success",
+    message: "Background image removed.",
+  };
+}

@@ -17,75 +17,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_usage_events: {
-        Row: {
-          created_at: string
-          duration_ms: number
-          error_code: string | null
-          id: string
-          input_tokens: number
-          kind: string
-          model: string
-          output_tokens: number
-          profile_id: string
-          provider: string
-          role: Database["public"]["Enums"]["app_role"]
-          school_id: string | null
-          status: string
-          tool_calls: number
-          tool_names: string[]
-        }
-        Insert: {
-          created_at?: string
-          duration_ms?: number
-          error_code?: string | null
-          id?: string
-          input_tokens?: number
-          kind: string
-          model: string
-          output_tokens?: number
-          profile_id: string
-          provider: string
-          role: Database["public"]["Enums"]["app_role"]
-          school_id?: string | null
-          status: string
-          tool_calls?: number
-          tool_names?: string[]
-        }
-        Update: {
-          created_at?: string
-          duration_ms?: number
-          error_code?: string | null
-          id?: string
-          input_tokens?: number
-          kind?: string
-          model?: string
-          output_tokens?: number
-          profile_id?: string
-          provider?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          school_id?: string | null
-          status?: string
-          tool_calls?: number
-          tool_names?: string[]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_usage_events_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_usage_events_school_id_fkey"
-            columns: ["school_id"]
-            isOneToOne: false
-            referencedRelation: "schools"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       academic_terms: {
         Row: {
           academic_year_id: string
@@ -171,6 +102,75 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "academic_years_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage_events: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_code: string | null
+          id: string
+          input_tokens: number
+          kind: string
+          model: string
+          output_tokens: number
+          profile_id: string
+          provider: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string | null
+          status: string
+          tool_calls: number
+          tool_names: string[]
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          id?: string
+          input_tokens?: number
+          kind: string
+          model: string
+          output_tokens?: number
+          profile_id: string
+          provider: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          status: string
+          tool_calls?: number
+          tool_names?: string[]
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          id?: string
+          input_tokens?: number
+          kind?: string
+          model?: string
+          output_tokens?: number
+          profile_id?: string
+          provider?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          status?: string
+          tool_calls?: number
+          tool_names?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
@@ -1069,6 +1069,7 @@ export type Database = {
           photo_url: string | null
           role: Database["public"]["Enums"]["app_role"]
           school_id: string | null
+          show_school_background: boolean
           status: Database["public"]["Enums"]["profile_status"]
           updated_at: string
           user_id: string
@@ -1086,6 +1087,7 @@ export type Database = {
           photo_url?: string | null
           role: Database["public"]["Enums"]["app_role"]
           school_id?: string | null
+          show_school_background?: boolean
           status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
           user_id: string
@@ -1103,6 +1105,7 @@ export type Database = {
           photo_url?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           school_id?: string | null
+          show_school_background?: boolean
           status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
           user_id?: string
@@ -1770,7 +1773,12 @@ export type Database = {
     }
     Enums: {
       academic_system: "semester" | "trimester" | "quarter" | "term"
-      announcement_audience: "everyone" | "staff" | "students" | "parents" | "class"
+      announcement_audience:
+        | "everyone"
+        | "staff"
+        | "students"
+        | "parents"
+        | "class"
       app_role:
         | "super_admin"
         | "school_admin"
@@ -1924,7 +1932,13 @@ export const Constants = {
   public: {
     Enums: {
       academic_system: ["semester", "trimester", "quarter", "term"],
-      announcement_audience: ["everyone", "staff", "students", "parents", "class"],
+      announcement_audience: [
+        "everyone",
+        "staff",
+        "students",
+        "parents",
+        "class",
+      ],
       app_role: ["super_admin", "school_admin", "teacher", "student", "parent"],
       attendance_status: ["present", "absent", "late", "excused"],
       enrollment_status: ["active", "withdrawn", "transferred", "completed"],

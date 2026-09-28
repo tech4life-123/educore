@@ -1,15 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { TextField } from "@/components/ui/input";
 import { SelectField } from "@/components/ui/select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { PLATFORM_BRAND, initialsFor, readableForeground } from "@/lib/branding";
+import { updateBackgroundPreference, type BackgroundPreferenceState } from "./actions";
 import {
+  removeSchoolBackground,
   removeSchoolLogo,
   updateAcademicSettings,
   updateSchoolProfile,
+  uploadSchoolBackground,
   uploadSchoolLogo,
   type SchoolFormState,
 } from "./school-actions";
@@ -372,6 +375,128 @@ export function LogoForm({ name, logoUrl }: { name: string; logoUrl: string | nu
         </form>
       ) : null}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Background image
+// ---------------------------------------------------------------------------
+
+export function BackgroundImageForm({ backgroundUrl }: { backgroundUrl: string | null }) {
+  const [uploadState, uploadAction] = useActionState<SchoolFormState, FormData>(uploadSchoolBackground, {});
+  const [removeState, removeAction] = useActionState<SchoolFormState, FormData>(removeSchoolBackground, {});
+  // Same preview-lifetime pattern as LogoForm above.
+  const [picked, setPicked] = useState<{
+    url: string;
+    since: SchoolFormState;
+  } | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const preview = picked && picked.since === uploadState ? picked.url : null;
+
+  const shown = preview ?? backgroundUrl;
+
+  return (
+    <div className="space-y-4">
+      <Feedback state={uploadState} />
+      <Feedback state={removeState} />
+
+      <div className="flex flex-wrap items-center gap-4">
+        {shown ? (
+          // eslint-disable-next-line @next/next/no-img-element -- local blob preview or our own storage URL
+          <img
+            src={shown}
+            alt="School background"
+            className="h-20 w-32 rounded-lg border border-border bg-surface object-cover"
+          />
+        ) : (
+          <span className="flex h-20 w-32 items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted text-xs text-muted">
+            No background set
+          </span>
+        )}
+        <div className="text-sm text-muted">
+          <p>PNG, JPEG or WebP, up to 3 MB.</p>
+          <p>Shown, softly blurred, behind every page for everyone in your school.</p>
+        </div>
+      </div>
+
+      <form action={uploadAction} className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1.5">
+          <label htmlFor="background" className="block text-sm font-medium text-foreground">
+            Choose a new background
+          </label>
+          <input
+            id="background"
+            name="background"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            aria-invalid={clientError || uploadState.fieldErrors?.background ? true : undefined}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              setClientError(null);
+              if (picked) URL.revokeObjectURL(picked.url);
+              setPicked(null);
+              if (!file) return;
+              if (file.size > 3 * 1024 * 1024) {
+                setClientError("That image is larger than 3 MB.");
+                e.target.value = "";
+                return;
+              }
+              if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+                setClientError("Use a PNG, JPEG or WebP image.");
+                e.target.value = "";
+                return;
+              }
+              setPicked({ url: URL.createObjectURL(file), since: uploadState });
+            }}
+            className="block w-full text-sm text-foreground file:mr-3 file:h-10 file:rounded-lg file:border file:border-border file:bg-surface-muted file:px-3 file:text-sm file:font-medium"
+          />
+          {clientError || uploadState.fieldErrors?.background ? (
+            <p className="text-sm font-medium text-danger">{clientError ?? uploadState.fieldErrors?.background}</p>
+          ) : null}
+        </div>
+        <SubmitButton loadingText="Uploading…" disabled={!preview}>
+          Upload background
+        </SubmitButton>
+      </form>
+
+      {backgroundUrl ? (
+        <form action={removeAction}>
+          <SubmitButton variant="secondary" size="sm" loadingText="Removing…">
+            Remove background
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Personal on/off toggle for the background image, for the caller's own
+ * screen only — shown to school admins only. Saves as soon as it's changed.
+ */
+export function BackgroundPreferenceToggle({ defaultChecked }: { defaultChecked: boolean }) {
+  const [state, formAction] = useActionState<BackgroundPreferenceState, FormData>(updateBackgroundPreference, {});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  return (
+    <form action={formAction} ref={formRef} className="space-y-2">
+      {state.status === "error" && state.message ? <Alert tone="danger">{state.message}</Alert> : null}
+      <label className="flex items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          name="show_school_background"
+          defaultChecked={defaultChecked}
+          onChange={() => formRef.current?.requestSubmit()}
+          className="mt-0.5 h-5 w-5 rounded border-border accent-[var(--brand)]"
+        />
+        <span>
+          <span className="font-medium text-foreground">Show the background on my screen</span>
+          <span className="block text-muted">
+            Turn this off to hide it just for you. It still shows for everyone else in your school.
+          </span>
+        </span>
+      </label>
+    </form>
   );
 }
 

@@ -8,7 +8,13 @@ import { locationLine, schoolTypeLabel } from "@/lib/format";
 import { requireSchoolMember } from "@/services/auth";
 import { getSchoolProfile, getSchoolSettings } from "@/services/school";
 import { ProfileForm } from "./profile-form";
-import { AcademicSettingsForm, LogoForm, SchoolProfileForm } from "./school-forms";
+import {
+  AcademicSettingsForm,
+  BackgroundImageForm,
+  BackgroundPreferenceToggle,
+  LogoForm,
+  SchoolProfileForm,
+} from "./school-forms";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -84,6 +90,20 @@ export default async function SettingsPage() {
             />
             <CardBody>
               <SchoolProfileForm defaults={schoolProfile} />
+            </CardBody>
+          </Card>
+
+          <Card aria-labelledby="background-title">
+            <CardHeader
+              titleId="background-title"
+              title="School background"
+              description="Shown, blurred, behind every page for everyone in your school."
+            />
+            <CardBody className="space-y-6">
+              <BackgroundImageForm backgroundUrl={schoolProfile.cover_image_url} />
+              <div className="border-t border-border pt-4">
+                <BackgroundPreferenceToggle defaultChecked={profile.show_school_background} />
+              </div>
             </CardBody>
           </Card>
 

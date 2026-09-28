@@ -34,6 +34,7 @@ export function AppShell({
   notifications,
   banner,
   assistant,
+  backgroundImageUrl,
   children,
 }: {
   identity: ShellIdentity;
@@ -46,10 +47,23 @@ export function AppShell({
   banner?: ReactNode;
   /** EduCore AI launcher, when the assistant is switched on. */
   assistant?: ReactNode;
+  /** School's uploaded background image, or null when there isn't one or the viewer has opted out. */
+  backgroundImageUrl?: string | null;
   children: ReactNode;
 }) {
   return (
-    <div style={brandStyle(identity.primaryColor)} className="min-h-dvh bg-background">
+    <div style={brandStyle(identity.primaryColor)} className={backgroundImageUrl ? "min-h-dvh" : "min-h-dvh bg-background"}>
+      {backgroundImageUrl ? (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 scale-110 bg-cover bg-center print:hidden"
+          style={{
+            backgroundImage: `linear-gradient(rgba(247,248,250,0.72), rgba(247,248,250,0.72)), url(${backgroundImageUrl})`,
+            filter: "blur(18px)",
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:shadow"
