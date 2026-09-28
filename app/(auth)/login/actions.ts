@@ -1,11 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { ConfigurationError } from "@/lib/env";
-import { ACTIVITY_COOKIE, ACTIVITY_COOKIE_MAX_AGE_S } from "@/lib/auth/inactivity";
 import { homePathForRole } from "@/lib/auth/roles";
 import { safeNextPath } from "@/lib/auth/safe-redirect";
 import { parseLoginIdentifier } from "@/lib/auth/login-id";
@@ -53,9 +51,7 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
     } else if (profile.must_change_password) {
       destination = "/change-password";
     } else if (profile.role === "super_admin") {
-      // A platform admin's own sub-page (e.g. a school they were looking at)
-      // is safe to return to; anything else falls back to their home page.
-      destination = next && next.startsWith("/platform") ? next : "/platform";
+      destination = "/platform";
     } else {
       destination = next && !next.startsWith("/platform") ? next : homePathForRole(profile.role);
     }
@@ -65,24 +61,6 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
     }
     console.error("[auth] sign-in failed", error instanceof Error ? error.name : "unknown");
     return { formError: "We couldn’t reach the server. Check your connection and try again.", email };
-  }
-
-  // Baseline for the five-minute inactivity sign-out (lib/auth/inactivity.ts),
-  // so the server-side check in proxy.ts has something to measure from even
-  // before the browser's own activity tracker has run once.
-  try {
-    (await cookies()).set(ACTIVITY_COOKIE, String(Date.now()), {
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: ACTIVITY_COOKIE_MAX_AGE_S,
-    });
-  } catch (error) {
-    // Non-essential: proxy.ts will stamp it on the very next request regardless.
-    // Logged (not silently swallowed) because proxy.ts now refuses to treat a
-    // missing stamp as stale on its own — this alone can no longer cause a
-    // false sign-out, but a repeated failure here is still worth knowing about.
-    console.error("[auth] could not set activity cookie after sign-in", error instanceof Error ? error.name : "unknown");
   }
 
   redirect(destination);
@@ -95,33 +73,7 @@ export async function signOut() {
   } catch (error) {
     console.error("[auth] sign-out failed", error instanceof Error ? error.name : "unknown");
   }
-  await clearActivityCookie();
   redirect("/login");
-}
-
-/**
- * Sign-out triggered by the client-side inactivity timer (components/auth/
- * inactivity-guard.tsx), not a form submit. It only revokes the session —
- * the caller navigates to /login?reason=inactivity&next=<page they were on>
- * itself, so they land back where they left off once they sign back in (see
- * the `next` handling in signIn above, and in lib/supabase/proxy.ts).
- */
-export async function signOutInactive() {
-  try {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-  } catch (error) {
-    console.error("[auth] inactivity sign-out failed", error instanceof Error ? error.name : "unknown");
-  }
-  await clearActivityCookie();
-}
-
-async function clearActivityCookie() {
-  try {
-    (await cookies()).delete(ACTIVITY_COOKIE);
-  } catch {
-    // Best-effort; a stale cookie alone can't extend a revoked session.
-  }
 }
 
 function messageForAuthError(error: AuthError | null): string {

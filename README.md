@@ -155,7 +155,6 @@ Schema changes must always be made through new migration files — never only in
 - After sign-in the server reads the user's profile and routes by role: `super_admin → /platform`, everyone else → `/dashboard` (or a validated `?next=` path).
 - Missing profile, deactivated profile, or suspended school → `/account`, which explains the situation instead of crashing.
 - Sign-in errors never reveal whether an account exists. Supabase Auth applies rate limiting.
-- **Inactivity sign-out.** Everyone — super admin, school admin, teacher, student, parent — is signed out after 5 minutes without real interaction (no click, keypress, scroll or touch — including the device being locked or the app not open at all for that long). Two layers enforce it: `components/auth/inactivity-guard.tsx`, mounted in `AppShell`, tracks wall-clock time client-side (not a background-throttled timer) and shows a 30-second "Still there?" warning; `lib/supabase/proxy.ts` independently revokes the session server-side on the next request if the recorded activity is stale, so the timeout holds even if client JS never ran. Signing back in returns to the exact page (`?next=`), with a "Signed out for inactivity" notice (`?reason=inactivity`) on the login page. See `lib/auth/inactivity.ts` for the shared constants and ARCHITECTURE.md decision #45.
 
 ## Security model (summary)
 
