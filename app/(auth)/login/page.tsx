@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const next = safeNextPath(params.next) ?? undefined;
+  const signedOutForInactivity = params.reason === "inactivity";
 
   const context = await getAuthContext();
   if (context.status === "ok" || context.status === "platform") {
@@ -38,7 +39,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
                 This deployment is not connected to its database yet. Please contact the platform administrator.
               </Alert>
             ) : (
-              <LoginForm next={next} />
+              <>
+                {signedOutForInactivity ? (
+                  <Alert tone="info" title="Signed out for inactivity">
+                    You were signed out after 5 minutes of inactivity. Sign in again to pick up right where you left off.
+                  </Alert>
+                ) : null}
+                <LoginForm next={next} />
+              </>
             )}
           </CardBody>
         </Card>
