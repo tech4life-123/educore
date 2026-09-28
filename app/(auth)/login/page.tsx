@@ -46,6 +46,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <p className="mt-6 text-center text-xs text-subtle">
           Don’t have an account? Accounts are created by your school administrator.
         </p>
+        <p className="mt-3 flex justify-center gap-3 text-xs text-subtle">
+          <Link href="/legal/privacy" className="hover:underline">
+            Privacy Policy
+          </Link>
+          <Link href="/legal/terms" className="hover:underline">
+            Terms of Service
+          </Link>
+        </p>
       </div>
     </div>
   );

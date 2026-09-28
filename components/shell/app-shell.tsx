@@ -64,7 +64,12 @@ export function AppShell({
         <nav aria-label="Main" className="flex-1 overflow-y-auto p-3">
           <NavList items={navigation} />
         </nav>
-        <p className="border-t border-border px-4 py-3 text-xs text-subtle">Powered by EduCore</p>
+        <p className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-subtle">
+          <span>Powered by EduCore</span>
+          <Link href="/legal/privacy" className="hover:underline">
+            Privacy
+          </Link>
+        </p>
       </aside>
 
       <div className="lg:pl-64 print:!pl-0">

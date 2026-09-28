@@ -213,6 +213,18 @@ Then, as super admin, open **Platform → EduCore AI → Test connection**.
 
 There are no hard-coded hosts or localhost URLs; redirects are built from the incoming request.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`: `npm run check` (lint, typecheck, build) and `npm run test:ai`. It needs no secrets — the build and AI unit tests don't require real Supabase or Anthropic credentials. Database/RLS behaviour is verified separately by the SQL suites in `supabase/tests/`, run against the live project (not part of this workflow, since they need direct database access).
+
+## Error monitoring
+
+`instrumentation.ts` captures every server-side error (page render, route handler, server action) once, in a structured line to stderr — no request body, headers or query values, just the message, digest, route and method. Vercel's built-in Runtime Logs / Observability picks this up automatically; no extra account is needed. It does not push alerts (email/Slack on a new error) — swap the `console.error` for a provider SDK (e.g. Sentry) if that's wanted later.
+
+## Legal pages
+
+`/legal/privacy` and `/legal/terms` are public pages (linked from the sign-in page and the app sidebar) with a first draft of a privacy policy and terms of service, written for a school-records platform. **They are explicitly marked as drafts that have not been reviewed by a lawyer** — see the banner on both pages — and should be reviewed by qualified counsel (ideally licensed in Liberia, given minors' data) before being relied on with a real school.
+
 ## Current milestone status
 
 Foundation — complete except for items marked NOT VERIFIED in the milestone report (end-to-end sign-in against a live project was not executable from the build environment).
