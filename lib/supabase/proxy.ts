@@ -69,10 +69,21 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthenticated && protectedPath) {
     const now = Date.now();
-    const stamped = Number(request.cookies.get(ACTIVITY_COOKIE)?.value);
-    const stale = Number.isFinite(stamped) && now - stamped > INACTIVITY_TIMEOUT_MS;
+    const rawStamp = request.cookies.get(ACTIVITY_COOKIE)?.value;
+    // Number("") is 0, not NaN — parsing an empty or missing cookie value
+    // naively would read as "epoch zero", i.e. infinitely stale, and sign
+    // out every fresh sign-in. A sane stamp is a real, past timestamp: it
+    // must be a positive number no later than now (a future value can only
+    // be clock skew or a corrupted cookie, never grounds to sign someone out).
+    const stamped = rawStamp ? Number(rawStamp) : NaN;
+    const hasSaneStamp = Number.isFinite(stamped) && stamped > 0 && stamped <= now;
+    const stale = hasSaneStamp && now - stamped > INACTIVITY_TIMEOUT_MS;
 
     if (stale) {
+      console.error(
+        "[auth] inactivity sign-out",
+        JSON.stringify({ path: request.nextUrl.pathname, idleMs: now - stamped }),
+      );
       try {
         await supabase.auth.signOut();
       } catch {

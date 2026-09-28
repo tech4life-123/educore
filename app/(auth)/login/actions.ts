@@ -77,8 +77,12 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
       secure: process.env.NODE_ENV === "production",
       maxAge: ACTIVITY_COOKIE_MAX_AGE_S,
     });
-  } catch {
+  } catch (error) {
     // Non-essential: proxy.ts will stamp it on the very next request regardless.
+    // Logged (not silently swallowed) because proxy.ts now refuses to treat a
+    // missing stamp as stale on its own — this alone can no longer cause a
+    // false sign-out, but a repeated failure here is still worth knowing about.
+    console.error("[auth] could not set activity cookie after sign-in", error instanceof Error ? error.name : "unknown");
   }
 
   redirect(destination);
