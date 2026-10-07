@@ -349,6 +349,20 @@ First step of the multi-school website/subdomain/custom-domain expansion. This p
 
 **Verified without a live project.** `isKnownAppHost` and `resolveTenantHost` are pure/isolated enough to run directly under Node (the same `--experimental-strip-types` + path-alias loader `npm run test:ai` already uses) with `fetch` mocked — confirmed host-matching for configured hosts, `*.vercel.app`, `localhost`/`127.0.0.1` (case-insensitive), and rejection of everything else; confirmed `resolveTenantHost` lowercases and strips the port before querying, and returns `null` on a miss, a `null` input, and a failed request alike.
 
+### 21.3 Super Admin domains dashboard (Phase 4)
+
+A review queue for the custom-domain requests schools submit through §21 — `/platform/domains`, built on the same `app/platform` shell as the Schools and Statistics pages.
+
+**Reads via the service-role client, same as every other platform list.** `listDomainsForPlatform()` (`services/platform.ts`) calls `requireSuperAdmin()` first, then uses `createAdminClient()` — a super admin has no RLS read access to any school's `school_domains` rows (decision #50's counterpart: §21's RLS only ever grants a school's *own* admins read access to their *own* rows), so this is the only way to see requests across every school at once. The query joins `schools(name, code)` through PostgREST embedding so the dashboard can show which school each request belongs to without a second round trip.
+
+**Writes through a new SECURITY DEFINER function, mirroring `platform_set_school_status` exactly.** `platform_set_domain_verification(p_domain_id, p_status)` checks `private.current_app_role() = 'super_admin'` first, then flips `verification_status` to `verified` or `failed`. It refuses to touch a `subdomain`-type row (those were never submitted for review) and refuses an unknown id, both as a plain exception rather than silently doing nothing. The server action (`app/platform/domains/actions.ts`) calls it via `supabase.rpc(...)` under the caller's own session — never the service role — same as `setSchoolStatusAction`.
+
+**What "approve" means today, and what it doesn't.** This only records a super admin's review decision. It does not call Vercel's API, does not point DNS anywhere, and does not issue a certificate — that integration is step 5 of the plan, not yet built. The dashboard says so directly rather than implying a domain is live once approved.
+
+**Tests.** Added to `supabase/tests/school_domains.sql` (D20–D26): every non-super-admin actor (the requesting school's own admin, a teacher, another school's admin) is denied; a super admin can approve a pending custom request and the row updates; a super admin cannot "review" a subdomain row or an unknown id. Verified locally against the full migration chain on the same disposable Postgres + shim harness as §21, alongside every other SQL test file in the project, with no regressions.
+
+**`types/database.ts` needs regenerating (`npm run db:types`) before this typechecks.** Both new call sites — `services/platform.ts`'s `.from("school_domains")` select and the server action's `.rpc("platform_set_domain_verification", …)` — reference types the generator hasn't produced yet, since it was last run before the §21 migrations existed. `npm run typecheck` currently fails with exactly those two call sites and nothing else; running `db:types` against the live project is the only fix (there's no live Supabase connection available to do it from this session).
+
 ## 22. Security decisions log
 
 | # | Decision | Rationale |
@@ -406,3 +420,5 @@ First step of the multi-school website/subdomain/custom-domain expansion. This p
 | 51 | `proxy.ts`'s hostname gate is skipped entirely unless `EDUCORE_PRIMARY_HOSTS` is set | That file's session-refresh logic already caused one production incident (#45); an unconfigured, off-by-default feature can't regress existing traffic no matter what it does once turned on. |
 | 52 | Unrecognized-host fallback is a `rewrite`, not a `redirect` | A redirect would expose the internal `/site-unavailable` path and change the address bar; a rewrite serves the generic page while the visitor's own domain stays in the URL. |
 | 53 | `*.vercel.app` always treated as the app, hardcoded rather than configured | It's this project's own preview/production domain family; a school's custom domain can never legitimately be one, so the whole suffix is safe to trust without listing every preview URL. |
+| 54 | Domain-review listing uses the service-role client; the write goes through a new SECURITY DEFINER function that re-checks the caller's role | A super admin has no RLS power over any school's `school_domains` rows (by design, §21); the read needs the service role to see across schools at all, and the write still has to prove the caller is a super admin itself rather than trusting the page that got them there. |
+| 55 | `platform_set_domain_verification` refuses to act on a `subdomain`-type row | Those rows are provisioned server-side, never submitted for review; letting the review queue touch them by id would blur "a school asked for this" with "the system issued this automatically." |

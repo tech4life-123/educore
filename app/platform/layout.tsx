@@ -12,6 +12,7 @@ import { AI_DATA_TOOLS_AVAILABLE, suggestionsFor } from "@/lib/ai/suggestions";
 const PLATFORM_NAVIGATION: readonly NavItem[] = [
   { label: "Schools", href: "/platform", icon: "platform", available: true, roles: [] },
   { label: "Statistics", href: "/platform/statistics", icon: "reports", available: true, roles: [] },
+  { label: "Domains", href: "/platform/domains", icon: "domains", available: true, roles: [] },
 ];
 
 export default async function PlatformLayout({ children }: LayoutProps<"/platform">) {

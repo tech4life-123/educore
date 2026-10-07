@@ -126,3 +126,66 @@ export async function getPlatformStatistics(): Promise<SchoolStatistics[]> {
   }
   return data.map((r) => ({ ...r, passing_score: Number(r.passing_score) }));
 }
+
+// ---------------------------------------------------------------------------
+// Custom-domain requests (multi-school domains plan, step 4)
+// ---------------------------------------------------------------------------
+
+export interface PlatformDomainRow {
+  id: string;
+  schoolId: string;
+  schoolName: string;
+  schoolCode: string;
+  domain: string;
+  domainType: "subdomain" | "custom";
+  isPrimary: boolean;
+  verificationStatus: "pending" | "verified" | "failed";
+  sslStatus: string;
+  createdAt: string;
+}
+
+export type PlatformDomainsResult = { status: "ok"; domains: PlatformDomainRow[] } | { status: "not_configured" } | { status: "error" };
+
+/**
+ * Every custom-domain request across all schools, newest first, for the
+ * Super Admin "Domains" review dashboard. Cross-tenant read via the
+ * service-role client — same pattern as listSchoolsForPlatform — because a
+ * super admin has no RLS read access to other schools' school_domains rows.
+ *
+ * Built-in *.educore subdomains are included too (read-only here) so the
+ * dashboard also shows what already exists, but only `custom` rows can be
+ * acted on — see platform_set_domain_verification.
+ */
+export async function listDomainsForPlatform(): Promise<PlatformDomainsResult> {
+  await requireSuperAdmin();
+
+  const admin = createAdminClient();
+  if (!admin) return { status: "not_configured" };
+
+  const { data, error } = await admin
+    .from("school_domains")
+    .select("id, school_id, domain, domain_type, is_primary, verification_status, ssl_status, created_at, schools(name, code)")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error("[platform] domain listing failed", error.code);
+    return { status: "error" };
+  }
+
+  return {
+    status: "ok",
+    domains: data.map((d) => ({
+      id: d.id,
+      schoolId: d.school_id,
+      schoolName: d.schools?.name ?? "—",
+      schoolCode: d.schools?.code ?? "—",
+      domain: d.domain,
+      domainType: d.domain_type,
+      isPrimary: d.is_primary,
+      verificationStatus: d.verification_status,
+      sslStatus: d.ssl_status,
+      createdAt: d.created_at,
+    })),
+  };
+}

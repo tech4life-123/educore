@@ -1,0 +1,133 @@
+import type { Metadata } from "next";
+import { ActionForm } from "@/components/ui/action-form";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { formatDate } from "@/lib/format";
+import { requireSuperAdmin } from "@/services/auth";
+import { listDomainsForPlatform, type PlatformDomainRow } from "@/services/platform";
+import { setDomainVerificationAction } from "./actions";
+
+export const metadata: Metadata = { title: "Domains" };
+
+const VERIFICATION_LABEL = { pending: "Pending review", verified: "Approved", failed: "Rejected" } as const;
+const VERIFICATION_TONE = { pending: "warning", verified: "success", failed: "danger" } as const;
+
+export default async function PlatformDomainsPage() {
+  await requireSuperAdmin();
+  const result = await listDomainsForPlatform();
+
+  if (result.status !== "ok") {
+    return (
+      <Alert tone={result.status === "not_configured" ? "warning" : "danger"} title="Couldn’t load domains">
+        {result.status === "not_configured"
+          ? "The server-side service key (SUPABASE_SERVICE_ROLE_KEY) is not set for this deployment."
+          : "Please refresh the page."}
+      </Alert>
+    );
+  }
+
+  const custom = result.domains.filter((d) => d.domainType === "custom");
+  const pending = custom.filter((d) => d.verificationStatus === "pending");
+  const decided = custom.filter((d) => d.verificationStatus !== "pending");
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Domains</h1>
+        <p className="mt-1 text-sm text-muted">
+          Custom-domain requests submitted by schools. Approving one here only records a review decision — it doesn’t yet point DNS
+          or issue a certificate; that connection to Vercel is a later phase.
+        </p>
+      </div>
+
+      <Card aria-labelledby="pending-title">
+        <CardHeader
+          titleId="pending-title"
+          title="Awaiting review"
+          description={pending.length === 0 ? undefined : `${pending.length} request${pending.length === 1 ? "" : "s"} waiting on a decision`}
+        />
+        {pending.length === 0 ? (
+          <EmptyState icon="domains" title="Nothing waiting" description="New custom-domain requests from schools will show up here." />
+        ) : (
+          <DomainsTable rows={pending} caption="Custom-domain requests awaiting review" showActions />
+        )}
+      </Card>
+
+      <Card aria-labelledby="decided-title">
+        <CardHeader titleId="decided-title" title="Previously reviewed" />
+        {decided.length === 0 ? (
+          <EmptyState icon="domains" title="No reviewed requests yet" />
+        ) : (
+          <DomainsTable rows={decided} caption="Previously reviewed custom-domain requests" showActions={false} />
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function DomainsTable({
+  rows,
+  caption,
+  showActions,
+}: {
+  rows: PlatformDomainRow[];
+  caption: string;
+  showActions: boolean;
+}) {
+  return (
+    <Table caption={caption}>
+      <THead>
+        <TR>
+          <TH>Domain</TH>
+          <TH>School</TH>
+          <TH>Status</TH>
+          <TH>Requested</TH>
+          {showActions ? (
+            <TH>
+              <span className="sr-only">Actions</span>
+            </TH>
+          ) : null}
+        </TR>
+      </THead>
+      <TBody>
+        {rows.map((d) => (
+          <TR key={d.id}>
+            <TD className="font-mono text-sm">{d.domain}</TD>
+            <TD>
+              {d.schoolName} <span className="text-muted">({d.schoolCode})</span>
+            </TD>
+            <TD>
+              <Badge tone={VERIFICATION_TONE[d.verificationStatus]}>{VERIFICATION_LABEL[d.verificationStatus]}</Badge>
+            </TD>
+            <TD className="text-sm text-muted">{formatDate(d.createdAt.slice(0, 10))}</TD>
+            {showActions ? (
+              <TD>
+                <div className="flex flex-wrap items-start gap-2">
+                  <ActionForm action={setDomainVerificationAction} compact aria-label={`Review ${d.domain}`}>
+                    <input type="hidden" name="domain_id" value={d.id} />
+                    <input type="hidden" name="status" value="verified" />
+                    <SubmitButton size="sm" loadingText="Saving…">
+                      Approve
+                    </SubmitButton>
+                  </ActionForm>
+                  <ActionForm action={setDomainVerificationAction} compact aria-label={`Reject ${d.domain}`}>
+                    <input type="hidden" name="domain_id" value={d.id} />
+                    <input type="hidden" name="status" value="failed" />
+                    <ConfirmButton question={`Reject ${d.domain}?`} confirmLabel="Yes, reject" pendingLabel="Saving…">
+                      Reject
+                    </ConfirmButton>
+                  </ActionForm>
+                </div>
+              </TD>
+            ) : null}
+          </TR>
+        ))}
+      </TBody>
+    </Table>
+  );
+}

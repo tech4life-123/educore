@@ -16,7 +16,7 @@ declare
   v_session text := session_user;
   a uuid := gen_random_uuid(); b uuid := gen_random_uuid();
   adm_a uuid := gen_random_uuid(); tch_a uuid := gen_random_uuid(); adm_b uuid := gen_random_uuid(); sup uuid := gen_random_uuid();
-  sub_a uuid := gen_random_uuid(); sub_b uuid := gen_random_uuid();
+  sub_a uuid := gen_random_uuid(); sub_b uuid := gen_random_uuid(); review uuid := gen_random_uuid();
   v_actor uuid; v_n bigint; v_actual text; t record;
 begin
   begin
@@ -35,6 +35,14 @@ begin
     values (sub_a, a, 'sd-test-a.educore.com', 'subdomain', true, 'verified', 'issued'),
            (sub_b, b, 'sd-test-b.educore.com', 'subdomain', true, 'verified', 'issued');
 
+    -- A pending custom-domain request, inserted directly (as postgres, which
+    -- bypasses RLS) so its id is known up front — platform_set_domain_
+    -- verification takes a domain id, and a super admin has no RLS read
+    -- access to school_domains (see D14) to look one up for itself inside a
+    -- test case that must run as 'sup'.
+    insert into public.school_domains (id, school_id, domain, domain_type)
+    values (review, a, 'review-me.edu.lr', 'custom');
+
     for t in select * from (values
       -- `id` is deliberately NOT in authenticated's insert grant (same
       -- reasoning as every other identity column), so the row is found by
@@ -52,7 +60,7 @@ begin
       ('D10','Admin moves a domain row to another school',       'adm_a','exec', format($q$update public.school_domains set school_id = %L where domain = 'www.sdtest-a.edu.lr'$q$, b), 'denied'),
       -- cross-tenant isolation
       ('D11','School A admin reads School B''s domain row',      'adm_a','count', format('select 1 from public.school_domains where id = %L', sub_b), 'rows=0'),
-      ('D12','School A admin lists domains (sees only A)',       'adm_a','count', 'select 1 from public.school_domains', 'rows=2'),
+      ('D12','School A admin lists domains (sees only A)',       'adm_a','count', 'select 1 from public.school_domains', 'rows=3'),
       ('D13','School A admin deletes School B''s domain',        'adm_a','exec', format('delete from public.school_domains where id = %L', sub_b), 'affected=0'),
       -- super admin: no RLS privileges, same as every other tenant table
       ('D14','Super admin lists domains via RLS',                'sup','count', 'select 1 from public.school_domains', 'rows=0'),
@@ -67,7 +75,16 @@ begin
       ('D17','School admin deletes their own SUBDOMAIN row',     'adm_a','exec', format('delete from public.school_domains where id = %L', sub_a), 'affected=0'),
       -- exactly one primary per school, enforced by the unique index
       ('D18','(setup) Second subdomain-style row for School A',  'postgres','exec', format($q$insert into public.school_domains (school_id, domain, domain_type, is_primary) values (%L, 'second.sd-test-a.educore.com', 'subdomain', false)$q$, a), 'affected=1'),
-      ('D19','Admin makes a second domain primary too',          'adm_a','exec', format($q$update public.school_domains set is_primary = true where school_id = %L and domain = 'second.sd-test-a.educore.com'$q$, a), 'denied')
+      ('D19','Admin makes a second domain primary too',          'adm_a','exec', format($q$update public.school_domains set is_primary = true where school_id = %L and domain = 'second.sd-test-a.educore.com'$q$, a), 'denied'),
+
+      -- platform_set_domain_verification (Super Admin domains dashboard, step 4)
+      ('D20','School admin approves their own request',         'adm_a','exec', format($q$select public.platform_set_domain_verification(%L, 'verified')$q$, review), 'denied'),
+      ('D21','Teacher approves the request',                    'tch_a','exec', format($q$select public.platform_set_domain_verification(%L, 'verified')$q$, review), 'denied'),
+      ('D22','Other school''s admin approves the request',      'adm_b','exec', format($q$select public.platform_set_domain_verification(%L, 'verified')$q$, review), 'denied'),
+      ('D23','Super admin approves the request (control)',      'sup','exec',   format($q$select public.platform_set_domain_verification(%L, 'verified')$q$, review), 'affected=1'),
+      ('D24','…it is now verified',                              'postgres','count', format($q$select 1 from public.school_domains where id = %L and verification_status = 'verified'$q$, review), 'rows=1'),
+      ('D25','Super admin rejects a SUBDOMAIN row',               'sup','exec', format($q$select public.platform_set_domain_verification(%L, 'failed')$q$, sub_a), 'denied'),
+      ('D26','Super admin reviews an unknown domain id',          'sup','exec', format($q$select public.platform_set_domain_verification(%L, 'verified')$q$, gen_random_uuid()), 'denied')
     ) as c(id, descr, actor, kind, sql, expected)
     loop
       v_actor := case t.actor when 'adm_a' then adm_a when 'tch_a' then tch_a when 'adm_b' then adm_b when 'sup' then sup end;

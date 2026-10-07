@@ -195,6 +195,12 @@ export const Icons = {
       <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
     </Base>
   ),
+  domains: (p: IconProps) => (
+    <Base {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a13 13 0 0 1 3 9 13 13 0 0 1-3 9 13 13 0 0 1-3-9 13 13 0 0 1 3-9Z" />
+    </Base>
+  ),
 } as const;
 
 export type IconName = keyof typeof Icons;

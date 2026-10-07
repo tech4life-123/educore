@@ -1352,6 +1352,56 @@ export type Database = {
           },
         ]
       }
+      school_domains: {
+        Row: {
+          created_at: string
+          domain: string
+          domain_type: Database["public"]["Enums"]["domain_type"]
+          id: string
+          is_primary: boolean
+          school_id: string
+          ssl_status: Database["public"]["Enums"]["domain_ssl_status"]
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["domain_verification_status"]
+          verification_token: string | null
+          vercel_domain_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          domain_type: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          is_primary?: boolean
+          school_id: string
+          ssl_status?: Database["public"]["Enums"]["domain_ssl_status"]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["domain_verification_status"]
+          verification_token?: string | null
+          vercel_domain_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          domain_type?: Database["public"]["Enums"]["domain_type"]
+          id?: string
+          is_primary?: boolean
+          school_id?: string
+          ssl_status?: Database["public"]["Enums"]["domain_ssl_status"]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["domain_verification_status"]
+          verification_token?: string | null
+          vercel_domain_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_domains_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       school_settings: {
         Row: {
           academic_system: Database["public"]["Enums"]["academic_system"]
@@ -1723,6 +1773,13 @@ export type Database = {
           teachers: number
         }[]
       }
+      platform_set_domain_verification: {
+        Args: {
+          p_domain_id: string
+          p_status: Database["public"]["Enums"]["domain_verification_status"]
+        }
+        Returns: Database["public"]["Enums"]["domain_verification_status"]
+      }
       platform_set_school_status: {
         Args: {
           p_school_id: string
@@ -1786,6 +1843,9 @@ export type Database = {
         | "student"
         | "parent"
       attendance_status: "present" | "absent" | "late" | "excused"
+      domain_ssl_status: "pending" | "issued" | "failed"
+      domain_type: "subdomain" | "custom"
+      domain_verification_status: "pending" | "verified" | "failed"
       enrollment_status: "active" | "withdrawn" | "transferred" | "completed"
       profile_status: "invited" | "active" | "suspended" | "inactive"
       school_stage:
@@ -1941,6 +2001,9 @@ export const Constants = {
       ],
       app_role: ["super_admin", "school_admin", "teacher", "student", "parent"],
       attendance_status: ["present", "absent", "late", "excused"],
+      domain_ssl_status: ["pending", "issued", "failed"],
+      domain_type: ["subdomain", "custom"],
+      domain_verification_status: ["pending", "verified", "failed"],
       enrollment_status: ["active", "withdrawn", "transferred", "completed"],
       profile_status: ["invited", "active", "suspended", "inactive"],
       school_stage: [
