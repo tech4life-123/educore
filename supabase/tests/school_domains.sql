@@ -56,7 +56,12 @@ begin
       ('D13','School A admin deletes School B''s domain',        'adm_a','exec', format('delete from public.school_domains where id = %L', sub_b), 'affected=0'),
       -- super admin: no RLS privileges, same as every other tenant table
       ('D14','Super admin lists domains via RLS',                'sup','count', 'select 1 from public.school_domains', 'rows=0'),
-      ('D15','Anonymous reads domains',                          'anon','count', 'select 1 from public.school_domains', 'denied'),
+      -- anon CAN now resolve a verified domain of an active school to its
+      -- school_id (migration 20261006201500, for hostname routing) — both
+      -- fixture subdomains qualify, so this is no longer a blanket "denied".
+      -- Column/insert restrictions for anon are covered in
+      -- school_domains_public_resolution.sql.
+      ('D15','Anonymous resolves the two verified domains',      'anon','count', 'select 1 from public.school_domains', 'rows=2'),
       -- a withdrawn custom-domain request can be removed by its own school
       ('D16','School admin withdraws their own custom request',  'adm_a','exec', $q$delete from public.school_domains where domain = 'www.sdtest-a.edu.lr'$q$, 'affected=1'),
       ('D17','School admin deletes their own SUBDOMAIN row',     'adm_a','exec', format('delete from public.school_domains where id = %L', sub_a), 'affected=0'),

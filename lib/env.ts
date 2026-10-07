@@ -66,3 +66,18 @@ export function isSupabaseConfigured(): boolean {
     return false;
   }
 }
+
+/**
+ * Hostnames that are "the app itself", never a school's marketing domain —
+ * e.g. a custom root domain the pilot school signs in through today.
+ * EDUCORE_PRIMARY_HOSTS is a comma-separated list; unset/empty means the
+ * hostname-fallback feature in proxy.ts stays entirely off (see
+ * ARCHITECTURE.md §21.2) — this must never silently start gating real
+ * traffic just because the list is empty.
+ */
+export function getPrimaryHosts(): string[] {
+  return (process.env.EDUCORE_PRIMARY_HOSTS ?? "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
