@@ -38,7 +38,7 @@ export async function getAiViewer(): Promise<ViewerLookup> {
     case "ok":
       if (ctx.profile.must_change_password) return { status: "forbidden" };
       // The assistant has no finance tools; finance officers don't get it.
-      if (ctx.profile.role === "finance_officer") return { status: "forbidden" };
+      if (ctx.profile.role === "finance_officer" || ctx.profile.role === "admissions_officer") return { status: "forbidden" };
       return {
         status: "ok",
         viewer: {

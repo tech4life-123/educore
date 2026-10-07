@@ -49,7 +49,7 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
       signOutAction={signOut}
       backgroundImageUrl={profile.show_school_background ? school.cover_image_url : null}
       assistant={
-        role !== "finance_officer" && getAiConfig().enabled ? <AssistantLauncher suggestions={suggestionsFor(role)} dataAccess={AI_DATA_TOOLS_AVAILABLE} /> : null
+        role !== "finance_officer" && role !== "admissions_officer" && getAiConfig().enabled ? <AssistantLauncher suggestions={suggestionsFor(role)} dataAccess={AI_DATA_TOOLS_AVAILABLE} /> : null
       }
       banner={
         school.is_demo ? (

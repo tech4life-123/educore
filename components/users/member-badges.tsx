@@ -25,4 +25,5 @@ export const ROLE_FILTER_OPTIONS = [
   { value: "parent", label: "Parents" },
   { value: "school_admin", label: "Administrators" },
   { value: "finance_officer", label: "Finance officers" },
+  { value: "admissions_officer", label: "Admissions officers" },
 ] as const;

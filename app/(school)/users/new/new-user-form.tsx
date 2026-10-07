@@ -16,6 +16,7 @@ const ROLE_OPTIONS = [
   { value: "parent", label: "Parent / Guardian" },
   { value: "school_admin", label: "School Administrator" },
   { value: "finance_officer", label: "Finance Officer" },
+  { value: "admissions_officer", label: "Admissions Officer" },
 ] as const;
 
 const ROLE_LABEL: Record<string, string> = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label]));

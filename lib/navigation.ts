@@ -22,7 +22,7 @@ export interface NavItem {
 
 const ALL: readonly SchoolRole[] = ["school_admin", "teacher", "student", "parent"];
 // Finance officers only see the pages that exist for them; finance pages join in later phases.
-const ALL_AND_FINANCE: readonly SchoolRole[] = [...ALL, "finance_officer"];
+const ALL_AND_FINANCE: readonly SchoolRole[] = [...ALL, "finance_officer", "admissions_officer"];
 
 export const SCHOOL_NAVIGATION: readonly NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard", available: true, roles: ALL_AND_FINANCE },
@@ -36,6 +36,8 @@ export const SCHOOL_NAVIGATION: readonly NavItem[] = [
   { label: "Report Cards", href: "/report-cards", icon: "reportCards", available: true, roles: ALL },
   { label: "Announcements", href: "/announcements", icon: "announcements", available: true, roles: ALL },
   { label: "My fees", href: "/my-fees", icon: "finance", available: true, roles: ["student", "parent"] },
+  { label: "My documents", href: "/my-documents", icon: "reportCards", available: true, roles: ["student", "parent"] },
+  { label: "Documents", href: "/documents", icon: "reportCards", available: true, roles: ["school_admin", "finance_officer", "admissions_officer"] },
   { label: "Finance", href: "/finance", icon: "finance", available: true, roles: ["school_admin", "finance_officer"] },
   { label: "Reports", href: "/reports", icon: "reports", available: true, roles: ["school_admin"] },
   { label: "Settings", href: "/settings", icon: "settings", available: true, roles: ALL_AND_FINANCE },

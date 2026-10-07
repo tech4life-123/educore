@@ -450,6 +450,13 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 63 | Public receipt verification returns first name + last initial only | Proves a receipt is genuine without exposing a child's full name to anyone who scans the code. |
 | 64 | Reconciliation never auto-assigns money | Wrong automatic matches are worse than a short manual queue; suggestions are shown, a person decides. |
 | 65 | `reconcile_and_post` is private and ungranted | The only way into the reconciled state is a logged, audited match by finance staff. |
+| 66 | Document rules are per-school data (`document_types`), never code | Spec §15–17: a school decides fee, payment, clearance, approval and override per document. Seeded types start free with no rules, so nothing charges anyone until an administrator sets it. |
+| 67 | A document fee is an ordinary invoice on the student's ledger; the request only follows it | No second money path. Payment posting/reversal moves the request forward/back through a trigger, so a bounced payment re-locks an ungenerated document. |
+| 68 | Clearance holds documents, never records | `student_clearance` only gates document types that opt in; grades, report cards and attendance stay visible. The document's own fee invoice is excluded so "fee AND clearance" works. |
+| 69 | Override is school-admin only, per-type opt-in, needs a reason, is audited — and never covers approval | Spec §15 "if the school's policy allows it"; DOCUMENT_OVERRIDE keeps who/why/what was waived. |
+| 70 | Issued documents are immutable snapshots with their own token; revoke, never edit/delete | A transcript must say what was true when issued; the QR page shows a revoked document as invalid. |
+| 71 | `document_request_details` is an owner-run security_barrier view with the policy's rule in its WHERE | Admissions officers need names and fee status but must not read the student directory or finance tables. Keep the view's WHERE identical to the `document_requests` policy. |
+
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -460,3 +467,15 @@ Migrations (run in order): `20261007110000_finance_receipts.sql`, `2026100712000
 **Reconciliation.** `incoming_transactions` holds lines from a bank or mobile-money statement that finance staff log by hand (provider/bank automation arrives in Phases 4–5 through the same table). Each line is resolved by a person: match to a pending payment (same method, currency, amount), assign to a student/invoice (creates and posts a payment), or reject with a reason. Suggestions are shown, never applied. Matching walks the payment confirmed → reconciled → posted through the private `reconcile_and_post`, which has no public grant.
 
 **Reports.** Collections by date range, method and currency (posted payments only) and an ageing view of unpaid issued invoices, with CSV export (`/finance/reports/export`, formula-injection-safe).
+
+## 25. Document services (Phase 3)
+
+Migrations (run in order, each alone): `20261008100000_admissions_officer_role.sql` (new enum value — nothing else in that run), `20261008100100_document_services.sql`. Tests: `supabase/tests/documents.sql` (123 cases). Pages: `/documents` (staff queue), `/documents/settings` (school admin: fees & rules), `/my-documents` (student/parent), `/print/documents/[id]`, public `/verify/document/[token]`.
+
+**Model.** `document_types` (per school: fee, currency, requires_payment / clearance / approval, allow_override, admissions_handled, active) → `document_requests` (lifecycle requested → payment_pending → under_review → approved → generated → printed → delivered, plus rejected/cancelled; one open request per student and type) → `issued_documents` (DOC-YYYY-NNNNN via `finance_counters`, 64-hex verification token, jsonb snapshot, revocation). All writes go through SECURITY DEFINER `doc_*` functions; browser roles can only read.
+
+**Flow.** `doc_request` (self, linked parent, or staff) creates the fee invoice when payment is required and issues it on the ledger. `private.doc_advance` recomputes the stage whenever something changes (payment posted/reversed via the `payments` trigger, approval). `doc_generate` re-checks payment, clearance and approval in the database and builds the snapshot (transcripts carry the student's published report cards). If a payment/clearance requirement is unmet, only a school admin on a type that allows it can proceed, with a reason; the waiver is stored on the request and written to `financial_audit_logs`.
+
+**Roles.** New `admissions_officer` role (capability `documents.manage`): sees and processes only document types marked admissions-handled, with student names and fee status through `document_request_details` — no student directory, no finance tables. Finance officers and admins handle every type; only admins edit types, override and revoke.
+
+**Not in this phase.** Admission letters are for students already in the system (there is no applicant/enrolment-application module yet; applicant fees need that module first). Staff cannot yet raise a request on a family's behalf from the UI (the database function allows it). Online payment of the document fee arrives with Phases 4–5; until then the fee is paid at the school and recorded by finance.

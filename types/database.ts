@@ -1518,6 +1518,171 @@ export type Database = {
         }
         Relationships: []
       }
+      document_types: {
+        Row: {
+          id: string
+          school_id: string
+          code: string
+          name: string
+          description: string | null
+          fee_amount: number
+          currency: string | null
+          requires_payment: boolean
+          requires_clearance: boolean
+          requires_approval: boolean
+          allow_override: boolean
+          admissions_handled: boolean
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          code: string
+          name: string
+          description?: string | null
+          fee_amount?: number
+          currency?: string | null
+          requires_payment?: boolean
+          requires_clearance?: boolean
+          requires_approval?: boolean
+          allow_override?: boolean
+          admissions_handled?: boolean
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          code?: string
+          name?: string
+          description?: string | null
+          fee_amount?: number
+          currency?: string | null
+          requires_payment?: boolean
+          requires_clearance?: boolean
+          requires_approval?: boolean
+          allow_override?: boolean
+          admissions_handled?: boolean
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_requests: {
+        Row: {
+          id: string
+          school_id: string
+          student_id: string
+          document_type_id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["document_request_status"]
+          invoice_id: string | null
+          note: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          review_decision: string | null
+          review_note: string | null
+          override_by: string | null
+          override_reason: string | null
+          override_waived: string[] | null
+          cancelled_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          student_id: string
+          document_type_id: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["document_request_status"]
+          invoice_id?: string | null
+          note?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_decision?: string | null
+          review_note?: string | null
+          override_by?: string | null
+          override_reason?: string | null
+          override_waived?: string[] | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          student_id?: string
+          document_type_id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["document_request_status"]
+          invoice_id?: string | null
+          note?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_decision?: string | null
+          review_note?: string | null
+          override_by?: string | null
+          override_reason?: string | null
+          override_waived?: string[] | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      issued_documents: {
+        Row: {
+          id: string
+          school_id: string
+          request_id: string
+          student_id: string
+          document_type_id: string
+          document_number: string
+          verification_token: string
+          payload: Json
+          issued_by: string
+          issued_at: string
+          revoked_at: string | null
+          revoked_by: string | null
+          revoke_reason: string | null
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          request_id: string
+          student_id: string
+          document_type_id: string
+          document_number: string
+          verification_token?: string
+          payload: Json
+          issued_by: string
+          issued_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoke_reason?: string | null
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          request_id?: string
+          student_id?: string
+          document_type_id?: string
+          document_number?: string
+          verification_token?: string
+          payload?: Json
+          issued_by?: string
+          issued_at?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoke_reason?: string | null
+        }
+        Relationships: []
+      }
       incoming_transactions: {
         Row: {
           id: string
@@ -2227,6 +2392,47 @@ export type Database = {
       }
     }
     Views: {
+      document_request_details: {
+        Row: {
+          id: string | null
+          school_id: string | null
+          student_id: string | null
+          document_type_id: string | null
+          requested_by: string | null
+          status: Database["public"]["Enums"]["document_request_status"] | null
+          invoice_id: string | null
+          note: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          review_decision: string | null
+          review_note: string | null
+          override_reason: string | null
+          override_waived: string[] | null
+          cancelled_reason: string | null
+          created_at: string | null
+          updated_at: string | null
+          type_code: string | null
+          type_name: string | null
+          fee_amount: number | null
+          type_currency: string | null
+          requires_payment: boolean | null
+          requires_clearance: boolean | null
+          requires_approval: boolean | null
+          allow_override: boolean | null
+          first_name: string | null
+          middle_name: string | null
+          last_name: string | null
+          admission_number: string | null
+          invoice_number: string | null
+          invoice_status: string | null
+          invoice_balance_due: number | null
+          invoice_currency: string | null
+          document_id: string | null
+          document_number: string | null
+          document_revoked_at: string | null
+        }
+        Relationships: []
+      }
       student_balances: {
         Row: {
           school_id: string | null
@@ -2361,6 +2567,66 @@ export type Database = {
         Args: { p_reason: string; p_transaction_id: string }
         Returns: undefined
       }
+      student_clearance: {
+        Args: { p_student_id: string }
+        Returns: Json
+      }
+      doc_seed_types: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      doc_save_type: {
+        Args: {
+          p_active: boolean
+          p_admissions_handled: boolean
+          p_allow_override: boolean
+          p_code: string
+          p_currency: string
+          p_description: string
+          p_fee: number
+          p_id: string
+          p_name: string
+          p_requires_approval: boolean
+          p_requires_clearance: boolean
+          p_requires_payment: boolean
+        }
+        Returns: string
+      }
+      doc_request: {
+        Args: { p_note: string; p_student_id: string; p_type_id: string }
+        Returns: string
+      }
+      doc_cancel_request: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
+      }
+      doc_review_request: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: undefined
+      }
+      doc_generate: {
+        Args: { p_override_reason: string; p_request_id: string }
+        Returns: string
+      }
+      doc_mark: {
+        Args: { p_request_id: string; p_status: Database["public"]["Enums"]["document_request_status"] }
+        Returns: undefined
+      }
+      doc_revoke: {
+        Args: { p_document_id: string; p_reason: string }
+        Returns: undefined
+      }
+      verify_document: {
+        Args: { p_token: string }
+        Returns: {
+          document_number: string
+          document_type: string
+          is_valid: boolean
+          issued_on: string
+          school_name: string
+          student_label: string
+        }[]
+      }
       verify_receipt: {
         Args: { p_token: string }
         Returns: {
@@ -2490,6 +2756,7 @@ export type Database = {
         | "student"
         | "parent"
         | "finance_officer"
+        | "admissions_officer"
       attendance_status: "present" | "absent" | "late" | "excused"
       domain_ssl_status: "pending" | "issued" | "failed"
       domain_type: "subdomain" | "custom"
@@ -2536,6 +2803,17 @@ export type Database = {
         | "mtn_momo"
         | "cash"
         | "other"
+      document_request_status:
+        | "requested"
+        | "payment_pending"
+        | "paid"
+        | "under_review"
+        | "approved"
+        | "generated"
+        | "printed"
+        | "delivered"
+        | "rejected"
+        | "cancelled"
       payment_status:
         | "pending"
         | "processing"
@@ -2696,7 +2974,7 @@ export const Constants = {
         "parents",
         "class",
       ],
-      app_role: ["super_admin", "school_admin", "teacher", "student", "parent", "finance_officer"],
+      app_role: ["super_admin", "school_admin", "teacher", "student", "parent", "finance_officer", "admissions_officer"],
       attendance_status: ["present", "absent", "late", "excused"],
       domain_ssl_status: ["pending", "issued", "failed"],
       domain_type: ["subdomain", "custom"],
@@ -2715,6 +2993,7 @@ export const Constants = {
       ledger_direction: ["debit", "credit"],
       ledger_entry_type: ["charge", "payment", "reversal", "adjustment", "refund"],
       payment_method: ["bank", "orange_money", "mtn_momo", "cash", "other"],
+      document_request_status: ["requested", "payment_pending", "paid", "under_review", "approved", "generated", "printed", "delivered", "rejected", "cancelled"],
       payment_status: ["pending", "processing", "confirmed", "reconciled", "posted", "failed", "rejected", "reversed", "refunded", "cancelled"],
       transaction_status: ["unmatched", "matched", "rejected"],
       school_status: ["pending", "active", "suspended", "archived"],
