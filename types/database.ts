@@ -1350,6 +1350,108 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_provider_accounts: {
+        Row: {
+          id: string
+          school_id: string
+          provider: string
+          environment: string
+          label: string
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          provider: string
+          environment?: string
+          label: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          provider?: string
+          environment?: string
+          label?: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_provider_secrets: {
+        Row: {
+          account_id: string
+          school_id: string
+          webhook_secret: string
+          rotated_at: string
+        }
+        Insert: {
+          account_id: string
+          school_id: string
+          webhook_secret: string
+          rotated_at?: string
+        }
+        Update: {
+          account_id?: string
+          school_id?: string
+          webhook_secret?: string
+          rotated_at?: string
+        }
+        Relationships: []
+      }
+      provider_events: {
+        Row: {
+          id: string
+          school_id: string
+          account_id: string
+          provider: string
+          external_id: string
+          outcome: string
+          detail: string | null
+          transaction_id: string | null
+          payload: Json
+          delivery_count: number
+          received_at: string
+          last_received_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          account_id: string
+          provider: string
+          external_id: string
+          outcome: string
+          detail?: string | null
+          transaction_id?: string | null
+          payload: Json
+          delivery_count?: number
+          received_at?: string
+          last_received_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          account_id?: string
+          provider?: string
+          external_id?: string
+          outcome?: string
+          detail?: string | null
+          transaction_id?: string | null
+          payload?: Json
+          delivery_count?: number
+          received_at?: string
+          last_received_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           id: string
@@ -2545,6 +2647,32 @@ export type Database = {
       finance_assign_transaction: {
         Args: { p_invoice_id: string; p_note: string; p_student_id: string; p_transaction_id: string }
         Returns: string
+      }
+      provider_account_create: {
+        Args: { p_environment: string; p_label: string; p_provider: string }
+        Returns: { account_id: string; webhook_secret: string }[]
+      }
+      provider_account_rotate_secret: {
+        Args: { p_account: string }
+        Returns: string
+      }
+      provider_account_set_status: {
+        Args: { p_account: string; p_status: string }
+        Returns: undefined
+      }
+      provider_ingest: {
+        Args: {
+          p_account: string
+          p_amount: number | null
+          p_currency: string | null
+          p_date: string | null
+          p_external_id: string
+          p_payer_name: string | null
+          p_payer_phone: string | null
+          p_payload: Json
+          p_status: string
+        }
+        Returns: Json
       }
       finance_log_transaction: {
         Args: {

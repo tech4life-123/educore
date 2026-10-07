@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "db:types": "supabase gen types typescript --linked --schema public > types/database.ts",
     "check": "npm run lint && npm run typecheck && npm run build",
-    "test:ai": "node --experimental-strip-types --no-warnings --conditions=react-server --import ./tests/register.mjs --test \"tests/ai/*.test.ts\""
+    "test:ai": "node --experimental-strip-types --no-warnings --conditions=react-server --import ./tests/register.mjs --test \"tests/ai/*.test.ts\"",
+    "test:payments": "node --experimental-strip-types --no-warnings --conditions=react-server --import ./tests/register.mjs --test \"tests/payments/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

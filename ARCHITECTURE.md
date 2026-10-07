@@ -456,7 +456,10 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 69 | Override is school-admin only, per-type opt-in, needs a reason, is audited — and never covers approval | Spec §15 "if the school's policy allows it"; DOCUMENT_OVERRIDE keeps who/why/what was waived. |
 | 70 | Issued documents are immutable snapshots with their own token; revoke, never edit/delete | A transcript must say what was true when issued; the QR page shows a revoked document as invalid. |
 | 71 | `document_request_details` is an owner-run security_barrier view with the policy's rule in its WHERE | Admissions officers need names and fee status but must not read the student directory or finance tables. Keep the view's WHERE identical to the `document_requests` policy. |
-
+| 72 | A provider message only ever creates an UNMATCHED `incoming_transactions` row (`source = 'provider'`) | Money is still matched to a student by a person in the reconciliation centre. A forged or mistaken callback can at worst add a line to review, never settle an invoice. |
+| 73 | Callbacks are authenticated by a per-account HMAC secret checked BEFORE anything is written; the secret lives in `payment_provider_secrets`, readable by no browser role | Orange/MTN and the sandbox post from outside any session, so the signature is the only proof. A separate table means no grant, view or policy on the accounts table can leak it. Secrets are shown once and can be rotated; they never enter the audit log. |
+| 74 | `provider_ingest` is service-role-only and idempotent on (account, provider transaction id) | Providers retry. The same message twice changes nothing (a redelivery counter moves); a message parked as "pending" is upgraded when the provider later reports success, because those share one id. |
+| 75 | Orange Money / MTN MoMo adapters exist but refuse everything (route answers 501) until implemented from the provider's official documentation | Their signature and payload formats are not guessed. A `live` account is also refused for any adapter that has not declared `supportsLive`. |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -479,3 +482,15 @@ Migrations (run in order, each alone): `20261008100000_admissions_officer_role.s
 **Roles.** New `admissions_officer` role (capability `documents.manage`): sees and processes only document types marked admissions-handled, with student names and fee status through `document_request_details` — no student directory, no finance tables. Finance officers and admins handle every type; only admins edit types, override and revoke.
 
 **Not in this phase.** Admission letters are for students already in the system (there is no applicant/enrolment-application module yet; applicant fees need that module first). Staff cannot yet raise a request on a family's behalf from the UI (the database function allows it). Online payment of the document fee arrives with Phases 4–5; until then the fee is paid at the school and recorded by finance.
+
+## 26. Payment-provider feeds (Phase 4 — foundation, no live providers yet)
+
+Migration: `20261009100000_payment_providers.sql`. Tests: `supabase/tests/providers.sql` (91 cases) and `npm run test:payments` (25 cases: signatures, adapters, every branch of the callback handler). Page: `/finance/providers` (finance staff see it; only a school administrator can add, switch off or re-key an account).
+
+**Flow.** Provider --signed POST--> `/api/payments/webhook/<provider>/<account id>` --> `lib/payments/handler.ts` (known provider, size cap 16 KB, account exists and is active, adapter implemented, signature + freshness, parse) --> `provider_ingest()` --> `provider_events` (the verified message, once) and `incoming_transactions` (`source = 'provider'`, status `unmatched`) --> the existing Reconciliation page. Nothing downstream changed.
+
+**Provider abstraction.** `lib/payments/types.ts` defines `ProviderAdapter { verify, parse, supportsLive }` and the `NormalizedPayment` shape; `adapters.ts` has the sandbox ("mock") adapter plus Orange Money and MTN MoMo stubs. Adding a real provider means implementing `verify` and `parse` for it (from the provider's official documentation, certified in its sandbox) and flipping `isImplemented`/`supportsLive` — no schema or route change. The sandbox signature (`X-EduCore-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "t.body")>`, 5-minute window) is a template for it.
+
+**Outcomes** logged per message: `ingested` (new transaction), `ignored` (not successful yet / bad amount or currency — visible to finance, creates nothing), `conflict` (same reference already logged from a statement — no second row).
+
+**Not in this phase.** Collecting money from a parent (initiating a mobile-money charge / payment link), automatic matching suggestions from the payer''s phone number, per-account rate limiting, and the Orange Money / MTN MoMo adapters themselves — all need merchant credentials and the providers' documentation. Bank/API feeds (Phase 5) will use the same `provider_ingest` path with a new provider code.
