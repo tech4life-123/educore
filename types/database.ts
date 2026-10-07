@@ -1056,6 +1056,534 @@ export type Database = {
           },
         ]
       }
+      finance_settings: {
+        Row: {
+          school_id: string
+          default_currency: string
+          invoice_prefix: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          school_id: string
+          default_currency?: string
+          invoice_prefix?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          school_id?: string
+          default_currency?: string
+          invoice_prefix?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fee_structures: {
+        Row: {
+          id: string
+          school_id: string
+          name: string
+          academic_year_id: string
+          term_id: string | null
+          grade_level_id: string | null
+          student_category: string | null
+          currency: string
+          is_active: boolean
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          name: string
+          academic_year_id: string
+          term_id?: string | null
+          grade_level_id?: string | null
+          student_category?: string | null
+          currency: string
+          is_active?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          name?: string
+          academic_year_id?: string
+          term_id?: string | null
+          grade_level_id?: string | null
+          student_category?: string | null
+          currency?: string
+          is_active?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fee_items: {
+        Row: {
+          id: string
+          school_id: string
+          fee_structure_id: string
+          fee_type: Database["public"]["Enums"]["fee_type"]
+          description: string | null
+          amount: number
+          due_date: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          fee_structure_id: string
+          fee_type: Database["public"]["Enums"]["fee_type"]
+          description?: string | null
+          amount: number
+          due_date?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          fee_structure_id?: string
+          fee_type?: Database["public"]["Enums"]["fee_type"]
+          description?: string | null
+          amount?: number
+          due_date?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_accounts: {
+        Row: {
+          id: string
+          school_id: string
+          student_id: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          student_id: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          student_id?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          id: string
+          school_id: string
+          invoice_number: string | null
+          student_id: string
+          guardian_id: string | null
+          academic_year_id: string
+          term_id: string | null
+          currency: string
+          issue_date: string | null
+          due_date: string
+          status: Database["public"]["Enums"]["invoice_status"]
+          notes: string | null
+          created_by: string | null
+          issued_by: string | null
+          issued_at: string | null
+          cancelled_by: string | null
+          cancelled_at: string | null
+          cancel_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          invoice_number?: string | null
+          student_id: string
+          guardian_id?: string | null
+          academic_year_id: string
+          term_id?: string | null
+          currency: string
+          issue_date?: string | null
+          due_date: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          notes?: string | null
+          created_by?: string | null
+          issued_by?: string | null
+          issued_at?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
+          cancel_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          invoice_number?: string | null
+          student_id?: string
+          guardian_id?: string | null
+          academic_year_id?: string
+          term_id?: string | null
+          currency?: string
+          issue_date?: string | null
+          due_date?: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          notes?: string | null
+          created_by?: string | null
+          issued_by?: string | null
+          issued_at?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
+          cancel_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          id: string
+          school_id: string
+          invoice_id: string
+          fee_item_id: string | null
+          fee_type: Database["public"]["Enums"]["fee_type"]
+          description: string
+          amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          invoice_id: string
+          fee_item_id?: string | null
+          fee_type: Database["public"]["Enums"]["fee_type"]
+          description: string
+          amount: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          invoice_id?: string
+          fee_item_id?: string | null
+          fee_type?: Database["public"]["Enums"]["fee_type"]
+          description?: string
+          amount?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      student_account_entries: {
+        Row: {
+          id: string
+          school_id: string
+          account_id: string
+          student_id: string
+          currency: string
+          direction: Database["public"]["Enums"]["ledger_direction"]
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          amount: number
+          description: string
+          entry_date: string
+          invoice_id: string | null
+          invoice_item_id: string | null
+          payment_id: string | null
+          reverses_entry_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          account_id: string
+          student_id: string
+          currency: string
+          direction: Database["public"]["Enums"]["ledger_direction"]
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          amount: number
+          description: string
+          entry_date?: string
+          invoice_id?: string | null
+          invoice_item_id?: string | null
+          payment_id?: string | null
+          reverses_entry_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          account_id?: string
+          student_id?: string
+          currency?: string
+          direction?: Database["public"]["Enums"]["ledger_direction"]
+          entry_type?: Database["public"]["Enums"]["ledger_entry_type"]
+          amount?: number
+          description?: string
+          entry_date?: string
+          invoice_id?: string | null
+          invoice_item_id?: string | null
+          payment_id?: string | null
+          reverses_entry_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          id: string
+          school_id: string
+          student_id: string
+          invoice_id: string | null
+          amount: number
+          currency: string
+          method: Database["public"]["Enums"]["payment_method"]
+          status: Database["public"]["Enums"]["payment_status"]
+          provider: string | null
+          reference: string | null
+          transaction_id: string | null
+          paid_on: string
+          payer_name: string | null
+          explanation: string | null
+          idempotency_key: string | null
+          recorded_by: string | null
+          verified_by: string | null
+          verified_at: string | null
+          status_reason: string | null
+          ledger_entry_id: string | null
+          reversal_entry_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          student_id: string
+          invoice_id?: string | null
+          amount: number
+          currency: string
+          method: Database["public"]["Enums"]["payment_method"]
+          status?: Database["public"]["Enums"]["payment_status"]
+          provider?: string | null
+          reference?: string | null
+          transaction_id?: string | null
+          paid_on: string
+          payer_name?: string | null
+          explanation?: string | null
+          idempotency_key?: string | null
+          recorded_by?: string | null
+          verified_by?: string | null
+          verified_at?: string | null
+          status_reason?: string | null
+          ledger_entry_id?: string | null
+          reversal_entry_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          student_id?: string
+          invoice_id?: string | null
+          amount?: number
+          currency?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          status?: Database["public"]["Enums"]["payment_status"]
+          provider?: string | null
+          reference?: string | null
+          transaction_id?: string | null
+          paid_on?: string
+          payer_name?: string | null
+          explanation?: string | null
+          idempotency_key?: string | null
+          recorded_by?: string | null
+          verified_by?: string | null
+          verified_at?: string | null
+          status_reason?: string | null
+          ledger_entry_id?: string | null
+          reversal_entry_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      financial_audit_logs: {
+        Row: {
+          id: string
+          school_id: string
+          user_id: string | null
+          actor_role: string | null
+          action: string
+          entity_type: string
+          entity_id: string | null
+          old_data: Json | null
+          new_data: Json | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          user_id?: string | null
+          actor_role?: string | null
+          action: string
+          entity_type: string
+          entity_id?: string | null
+          old_data?: Json | null
+          new_data?: Json | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          user_id?: string | null
+          actor_role?: string | null
+          action?: string
+          entity_type?: string
+          entity_id?: string | null
+          old_data?: Json | null
+          new_data?: Json | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          id: string
+          school_id: string
+          receipt_number: string
+          payment_id: string
+          student_id: string
+          invoice_id: string | null
+          currency: string
+          amount: number
+          previous_balance: number
+          remaining_balance: number
+          verification_token: string
+          issued_by: string | null
+          issued_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          receipt_number: string
+          payment_id: string
+          student_id: string
+          invoice_id?: string | null
+          currency: string
+          amount: number
+          previous_balance: number
+          remaining_balance: number
+          verification_token?: string
+          issued_by?: string | null
+          issued_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          receipt_number?: string
+          payment_id?: string
+          student_id?: string
+          invoice_id?: string | null
+          currency?: string
+          amount?: number
+          previous_balance?: number
+          remaining_balance?: number
+          verification_token?: string
+          issued_by?: string | null
+          issued_at?: string
+        }
+        Relationships: []
+      }
+      incoming_transactions: {
+        Row: {
+          id: string
+          school_id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          amount: number
+          currency: string
+          reference: string
+          transaction_date: string
+          payer_name: string | null
+          payer_phone: string | null
+          notes: string | null
+          source: string
+          status: Database["public"]["Enums"]["transaction_status"]
+          payment_id: string | null
+          status_reason: string | null
+          created_by: string | null
+          handled_by: string | null
+          handled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          amount: number
+          currency: string
+          reference: string
+          transaction_date: string
+          payer_name?: string | null
+          payer_phone?: string | null
+          notes?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          payment_id?: string | null
+          status_reason?: string | null
+          created_by?: string | null
+          handled_by?: string | null
+          handled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          school_id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          amount?: number
+          currency?: string
+          reference?: string
+          transaction_date?: string
+          payer_name?: string | null
+          payer_phone?: string | null
+          notes?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          payment_id?: string | null
+          status_reason?: string | null
+          created_by?: string | null
+          handled_by?: string | null
+          handled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1699,7 +2227,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      student_balances: {
+        Row: {
+          school_id: string | null
+          student_id: string | null
+          currency: string | null
+          total_charges: number | null
+          total_paid: number | null
+          balance: number | null
+        }
+        Relationships: []
+      }
+      invoice_balances: {
+        Row: {
+          invoice_id: string | null
+          school_id: string | null
+          invoice_number: string | null
+          student_id: string | null
+          currency: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          due_date: string | null
+          total_amount: number | null
+          amount_paid: number | null
+          balance_due: number | null
+          display_status: string | null
+        }
+        Relationships: []
+      }
+      finance_students: {
+        Row: {
+          school_id: string | null
+          student_id: string | null
+          first_name: string | null
+          middle_name: string | null
+          last_name: string | null
+          admission_number: string | null
+          status: Database["public"]["Enums"]["profile_status"] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_standard_subjects: { Args: never; Returns: number }
@@ -1726,6 +2292,87 @@ export type Database = {
           p_username: string
         }
         Returns: string
+      }
+      finance_cancel_invoice: {
+        Args: { p_invoice_id: string; p_reason: string }
+        Returns: undefined
+      }
+      finance_confirm_payment: { Args: { p_payment_id: string }; Returns: string }
+      finance_create_invoice: {
+        Args: {
+          p_academic_year_id: string
+          p_currency: string
+          p_due_date: string
+          p_guardian_id: string
+          p_items: Json
+          p_notes: string
+          p_student_id: string
+          p_term_id: string
+        }
+        Returns: string
+      }
+      finance_issue_invoice: { Args: { p_invoice_id: string }; Returns: string }
+      finance_record_payment: {
+        Args: {
+          p_amount: number
+          p_currency: string
+          p_explanation: string
+          p_idempotency_key: string
+          p_invoice_id: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_paid_on: string
+          p_payer_name: string
+          p_reference: string
+          p_student_id: string
+          p_transaction_id: string
+        }
+        Returns: string
+      }
+      finance_reject_payment: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: undefined
+      }
+      finance_reverse_payment: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: string
+      }
+      finance_assign_transaction: {
+        Args: { p_invoice_id: string; p_note: string; p_student_id: string; p_transaction_id: string }
+        Returns: string
+      }
+      finance_log_transaction: {
+        Args: {
+          p_amount: number
+          p_currency: string
+          p_date: string
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_notes: string
+          p_payer_name: string
+          p_payer_phone: string
+          p_reference: string
+        }
+        Returns: string
+      }
+      finance_match_transaction: {
+        Args: { p_payment_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      finance_reject_transaction: {
+        Args: { p_reason: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      verify_receipt: {
+        Args: { p_token: string }
+        Returns: {
+          amount: number
+          currency: string
+          is_valid: boolean
+          issued_on: string
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          receipt_number: string
+          school_name: string
+          student_label: string
+        }[]
       }
       move_grade_level: {
         Args: { p_direction: string; p_grade_id: string }
@@ -1842,6 +2489,7 @@ export type Database = {
         | "teacher"
         | "student"
         | "parent"
+        | "finance_officer"
       attendance_status: "present" | "absent" | "late" | "excused"
       domain_ssl_status: "pending" | "issued" | "failed"
       domain_type: "subdomain" | "custom"
@@ -1854,6 +2502,55 @@ export type Database = {
         | "junior_high"
         | "senior_high"
         | "other"
+      fee_type:
+        | "registration"
+        | "tuition"
+        | "examination"
+        | "laboratory"
+        | "library"
+        | "sports"
+        | "technology"
+        | "transportation"
+        | "boarding"
+        | "graduation"
+        | "transcript"
+        | "certificate"
+        | "id_card"
+        | "other"
+      invoice_status:
+        | "draft"
+        | "issued"
+        | "cancelled"
+      ledger_direction:
+        | "debit"
+        | "credit"
+      ledger_entry_type:
+        | "charge"
+        | "payment"
+        | "reversal"
+        | "adjustment"
+        | "refund"
+      payment_method:
+        | "bank"
+        | "orange_money"
+        | "mtn_momo"
+        | "cash"
+        | "other"
+      payment_status:
+        | "pending"
+        | "processing"
+        | "confirmed"
+        | "reconciled"
+        | "posted"
+        | "failed"
+        | "rejected"
+        | "reversed"
+        | "refunded"
+        | "cancelled"
+      transaction_status:
+        | "unmatched"
+        | "matched"
+        | "rejected"
       school_status: "pending" | "active" | "suspended" | "archived"
       school_type:
         | "high_school"
@@ -1999,7 +2696,7 @@ export const Constants = {
         "parents",
         "class",
       ],
-      app_role: ["super_admin", "school_admin", "teacher", "student", "parent"],
+      app_role: ["super_admin", "school_admin", "teacher", "student", "parent", "finance_officer"],
       attendance_status: ["present", "absent", "late", "excused"],
       domain_ssl_status: ["pending", "issued", "failed"],
       domain_type: ["subdomain", "custom"],
@@ -2013,6 +2710,13 @@ export const Constants = {
         "senior_high",
         "other",
       ],
+      fee_type: ["registration", "tuition", "examination", "laboratory", "library", "sports", "technology", "transportation", "boarding", "graduation", "transcript", "certificate", "id_card", "other"],
+      invoice_status: ["draft", "issued", "cancelled"],
+      ledger_direction: ["debit", "credit"],
+      ledger_entry_type: ["charge", "payment", "reversal", "adjustment", "refund"],
+      payment_method: ["bank", "orange_money", "mtn_momo", "cash", "other"],
+      payment_status: ["pending", "processing", "confirmed", "reconciled", "posted", "failed", "rejected", "reversed", "refunded", "cancelled"],
+      transaction_status: ["unmatched", "matched", "rejected"],
       school_status: ["pending", "active", "suspended", "archived"],
       school_type: [
         "high_school",

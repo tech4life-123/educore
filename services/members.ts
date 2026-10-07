@@ -99,7 +99,7 @@ export function validateNewMember(input: NewMemberInput): NewMemberInput {
   if (!firstName || firstName.length > 100) throw new MemberError("First name is required (up to 100 characters).");
   if (!lastName || lastName.length > 100) throw new MemberError("Last name is required (up to 100 characters).");
   if (middleName && middleName.length > 100) throw new MemberError("Middle name is too long.");
-  if (!["student", "teacher", "parent", "school_admin"].includes(input.role)) {
+  if (!["student", "teacher", "parent", "school_admin", "finance_officer"].includes(input.role)) {
     throw new MemberError("Choose a valid role.", "role");
   }
   if (!username && !email) throw new MemberError("Give a username, an email address, or both.", "username");

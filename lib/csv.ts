@@ -51,3 +51,7 @@ export function csvCell(value: string): string {
   const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[",\n\r;]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
+
+export function toCsv(header: string[], rows: (string | number | null | undefined)[][]): string {
+  return "\uFEFF" + [header, ...rows].map((r) => r.map((v) => csvCell(v === null || v === undefined ? "" : String(v))).join(",")).join("\r\n");
+}

@@ -363,6 +363,24 @@ A review queue for the custom-domain requests schools submit through §21 — `/
 
 **`types/database.ts` needs regenerating (`npm run db:types`) before this typechecks.** Both new call sites — `services/platform.ts`'s `.from("school_domains")` select and the server action's `.rpc("platform_set_domain_verification", …)` — reference types the generator hasn't produced yet, since it was last run before the §21 migrations existed. `npm run typecheck` currently fails with exactly those two call sites and nothing else; running `db:types` against the live project is the only fix (there's no live Supabase connection available to do it from this session).
 
+## 23. Finance (Phase 1 — foundation)
+
+Spec: "Finance, Payments & Document Services". Phase 1 delivers the database foundation only (no pages yet): fee structures, student accounts, invoices, a payment lifecycle with manual recording, an append-only ledger, derived balances and a financial audit log. Migrations: `20261007100000_finance_officer_role.sql` (run first, alone — a new enum value cannot be used in the transaction that adds it) and `20261007100100_finance_foundation.sql`. Tests: `supabase/tests/finance.sql`.
+
+**Model.** One currency per invoice, one default currency per school (`finance_settings`, USD or LRD), no conversion anywhere. EduCore never holds money and never bills schools. Each school's data is isolated by RLS plus composite `(id, school_id)` foreign keys.
+
+**Ledger is the truth.** `student_account_entries` is append-only (trigger blocks update/delete even for the table owner). Balances are never stored: `student_balances` and `invoice_balances` are `security_invoker` views over the ledger/payments, so the caller's own RLS applies. Invoices store only `draft | issued | cancelled`; "paid / partially paid / overdue" are derived in the view.
+
+**Writes go through functions only.** Browser roles have SELECT on every finance table (plus admin-only edits of fee structures/items and settings). Invoices, payments and ledger entries change only via SECURITY DEFINER functions that re-check the caller is a school admin or finance officer and take the school from the caller's profile: `finance_create_invoice`, `finance_issue_invoice`, `finance_cancel_invoice`, `finance_record_payment`, `finance_confirm_payment`, `finance_reject_payment`, `finance_reverse_payment`. A payment reaches the ledger only in `finance_confirm_payment` (database-side check, never a client flag); it refuses to overpay an invoice. Mistakes are reversed or cancelled with offsetting entries, never deleted.
+
+**Payment lifecycle.** `pending → processing → confirmed → reconciled → posted`, plus `failed / rejected / reversed / refunded / cancelled`. A trigger enforces the transition table, requires a reason for negative outcomes, and refuses `posted` without a ledger entry. Payment details are immutable once recorded. Duplicates are blocked by a partial unique index on `(school, method, reference)` and an idempotency key (retrying returns the same payment).
+
+**Roles.** `finance_officer` is a new school-scoped role. School admin and finance officer: full finance operations. Finance officers read fee configuration but only school admins edit it. Teachers: nothing. Students/parents: read their own (or linked child's) non-draft invoices, ledger, and posted/reversed/refunded payments. Super admin: no financial access (platform-level aggregates are a later phase). Finance staff find students through the `finance_students` view (name + admission number only), not the sensitive student record.
+
+**Audit.** `financial_audit_logs` (append-only) records named events — FEE_CHANGED, INVOICE_CREATED/ISSUED/CANCELLED, PAYMENT_CREATED/CONFIRMED/POSTED/REJECTED/REVERSED… — with actor, role, before/after and request metadata. Readable by finance staff only.
+
+**Deferred.** Phase 2 manual-payment UI, receipts/QR, reconciliation centre; Phase 3 document fees, clearance, admissions officer; Phase 4 mobile money; Phase 5 bank/API; Phase 6 installments, discounts, refunds, reports. TypeScript plumbing for `finance_officer` is in `lib/auth/roles.ts` (label + `finance.manage`); finance officers see only Dashboard and Settings and do not get the AI assistant (it has no finance tools).
+
 ## 22. Security decisions log
 
 | # | Decision | Rationale |
@@ -422,3 +440,23 @@ A review queue for the custom-domain requests schools submit through §21 — `/
 | 53 | `*.vercel.app` always treated as the app, hardcoded rather than configured | It's this project's own preview/production domain family; a school's custom domain can never legitimately be one, so the whole suffix is safe to trust without listing every preview URL. |
 | 54 | Domain-review listing uses the service-role client; the write goes through a new SECURITY DEFINER function that re-checks the caller's role | A super admin has no RLS power over any school's `school_domains` rows (by design, §21); the read needs the service role to see across schools at all, and the write still has to prove the caller is a super admin itself rather than trusting the page that got them there. |
 | 55 | `platform_set_domain_verification` refuses to act on a `subdomain`-type row | Those rows are provisioned server-side, never submitted for review; letting the review queue touch them by id would blur "a school asked for this" with "the system issued this automatically." |
+| 56 | Balances are derived by views over an append-only ledger, never stored | A stored balance can drift from the entries behind it; a view cannot, and the ledger trigger makes history unalterable even for the table owner. |
+| 57 | Finance tables are read-only to browser roles; every write is a SECURITY DEFINER function | The rules (who may confirm, no overpay, status transitions, numbering) live in one place the browser can't bypass, and a function derives the school from the caller so a school id is never trusted from the client. |
+| 58 | A payment is credited only inside `finance_confirm_payment` | "Confirmed" must be a database-side decision, never a client button or webhook flag; the same path will serve manual, mobile-money and bank confirmation. |
+| 59 | Invoice status stores only draft/issued/cancelled; paid/partial/overdue are derived | Stored payment status goes stale as payments arrive or reverse, or as the due date passes. |
+| 60 | New `finance_officer` role instead of reusing school_admin | Least privilege: a bursar can run payments without administering users, grades or settings; super admin deliberately gets no financial access. |
+| 61 | Finance staff read students through a narrow `finance_students` view | Invoicing needs name and admission number, not birth date, address or emergency contacts. |
+| 62 | Receipts snapshot the balance and are issued only inside payment confirmation | A receipt can never exist for money that isn't on the ledger, and it never changes after the fact. |
+| 63 | Public receipt verification returns first name + last initial only | Proves a receipt is genuine without exposing a child's full name to anyone who scans the code. |
+| 64 | Reconciliation never auto-assigns money | Wrong automatic matches are worse than a short manual queue; suggestions are shown, a person decides. |
+| 65 | `reconcile_and_post` is private and ungranted | The only way into the reconciled state is a logged, audited match by finance staff. |
+
+## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
+
+Migrations (run in order): `20261007110000_finance_receipts.sql`, `20261007120000_finance_reconciliation.sql`. Pages under `/finance` (Overview, Invoices, Payments, Reconciliation, Reports, Fees), printable receipt at `/print/receipts/[id]`, public verification at `/verify/receipt/[token]`.
+
+**Receipts.** Issued only inside `finance_confirm_payment`, in the same transaction that posts the ledger entry. A receipt snapshots the previous and remaining balance at that moment, is immutable (trigger), and is kept even if the payment is later reversed (the verify page then says so). Numbers are gap-free (`RCT-YYYY-NNNNN`, `finance_counters`). Each carries a random verification token encoded in a QR code; `verify_receipt(token)` is the only anonymous entry point and returns the receipt number, school, date, amount and the student's first name plus last initial only. The token is stripped from the audit log.
+
+**Reconciliation.** `incoming_transactions` holds lines from a bank or mobile-money statement that finance staff log by hand (provider/bank automation arrives in Phases 4–5 through the same table). Each line is resolved by a person: match to a pending payment (same method, currency, amount), assign to a student/invoice (creates and posts a payment), or reject with a reason. Suggestions are shown, never applied. Matching walks the payment confirmed → reconciled → posted through the private `reconcile_and_post`, which has no public grant.
+
+**Reports.** Collections by date range, method and currency (posted payments only) and an ageing view of unpaid issued invoices, with CSV export (`/finance/reports/export`, formula-injection-safe).
