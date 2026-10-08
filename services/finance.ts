@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { bucketReceivables, collectionRate, estimateNotYetDue, lastMonths, monthlyTotals, round2, shares, topDebtors, type CurrencyForecast, type Receivable } from "@/lib/finance-outlook";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
 
@@ -585,5 +586,97 @@ export async function getFinanceReport(from: string, to: string, today: string):
         total: (a.current + a.d1_30 + a.d31_60 + a.d61_plus) / 100,
       }))
       .sort((a, b) => a.currency.localeCompare(b.currency)),
+  };
+}
+
+// ------------------------------------------------------------------ outlook
+
+export interface Outlook {
+  today: string;
+  forecast: (CurrencyForecast & { estimate: number | null; rate: number | null })[];
+  months: string[];
+  perCurrency: {
+    currency: string;
+    collected: number[];
+    charged: number[];
+    refunds: number[];
+    discounts: { kind: string; amount: number }[];
+    methods: { method: string; amount: number; percent: number }[];
+  }[];
+  debtors: { studentId: string; name: string; currency: string; amount: number }[];
+}
+
+/** Forward-looking view (what falls due, and an estimate from the school's own history) plus the last six months. */
+export async function getOutlook(today: string): Promise<Outlook> {
+  const supabase = await createClient();
+  const months = lastMonths(today, 6);
+  const since = `${months[0]}-01`;
+  const windowStart = new Date(Date.parse(`${today}T00:00:00Z`) - 180 * 86_400_000).toISOString().slice(0, 10);
+  const [rec, pays, refunds, adjs, charges, past] = await Promise.all([
+    supabase.from("finance_receivables").select("student_id, currency, due_date, amount_due").limit(20000),
+    supabase.from("payments").select("currency, amount, method, paid_on").eq("status", "posted").gte("paid_on", since).limit(50000),
+    supabase.from("payment_refunds").select("currency, amount, refunded_on").gte("refunded_on", since).limit(20000),
+    supabase.from("invoice_adjustments").select("currency, amount, kind, created_at").eq("status", "applied").gte("created_at", since).limit(20000),
+    supabase.from("student_account_entries").select("currency, amount, entry_date").eq("entry_type", "charge").gte("entry_date", since).limit(50000),
+    supabase
+      .from("invoice_balances")
+      .select("currency, total_amount, adjustments_total, balance_due")
+      .eq("status", "issued")
+      .gte("due_date", windowStart)
+      .lt("due_date", today)
+      .limit(20000),
+  ]);
+  for (const r of [rec, pays, refunds, adjs, charges, past]) if (r.error) fail("finance outlook", r.error);
+
+  const receivables: Receivable[] = (rec.data ?? []).map((r) => ({
+    studentId: r.student_id ?? "",
+    currency: r.currency ?? "USD",
+    dueDate: r.due_date ?? today,
+    amountDue: num(r.amount_due),
+  }));
+
+  // Rate: of what fell due in the last 180 days, how much has been settled.
+  const fell = new Map<string, { due: number; paid: number }>();
+  for (const b of past.data ?? []) {
+    const c = b.currency ?? "USD";
+    const cur = fell.get(c) ?? { due: 0, paid: 0 };
+    const due = Math.max(0, num(b.total_amount) - num(b.adjustments_total));
+    cur.due += due;
+    cur.paid += Math.max(0, due - Math.max(0, num(b.balance_due)));
+    fell.set(c, cur);
+  }
+  const forecast = bucketReceivables(receivables, today).map((f) => {
+    const h = fell.get(f.currency);
+    const rate = h ? collectionRate(h.due, h.paid) : null;
+    return { ...f, rate, estimate: estimateNotYetDue(f, rate) };
+  });
+
+  const currencies = new Set<string>([...forecast.map((f) => f.currency)]);
+  for (const r of [...(pays.data ?? []), ...(refunds.data ?? []), ...(charges.data ?? [])]) currencies.add(r.currency);
+  const perCurrency = [...currencies].sort().map((currency) => {
+    const methodTotals = new Map<string, number>();
+    for (const p of pays.data ?? []) if (p.currency === currency) methodTotals.set(p.method, (methodTotals.get(p.method) ?? 0) + num(p.amount));
+    const kinds = new Map<string, number>();
+    for (const a of adjs.data ?? []) if (a.currency === currency) kinds.set(a.kind, (kinds.get(a.kind) ?? 0) + num(a.amount));
+    const gross = monthlyTotals((pays.data ?? []).map((p) => ({ currency: p.currency, date: p.paid_on, amount: num(p.amount) })), currency, months);
+    const back = monthlyTotals((refunds.data ?? []).map((r) => ({ currency: r.currency, date: r.refunded_on, amount: num(r.amount) })), currency, months);
+    return {
+      currency,
+      collected: gross.map((g, i) => round2(g - back[i])), // net of refunds
+      charged: monthlyTotals((charges.data ?? []).map((c) => ({ currency: c.currency, date: c.entry_date, amount: num(c.amount) })), currency, months),
+      refunds: back,
+      discounts: [...kinds.entries()].map(([kind, amount]) => ({ kind, amount: round2(amount) })).sort((a, b) => b.amount - a.amount),
+      methods: shares(methodTotals).map((s) => ({ method: s.key, amount: s.amount, percent: s.percent })),
+    };
+  });
+
+  const top = topDebtors(receivables, 10);
+  const names = await studentMap(top.map((d) => d.studentId));
+  return {
+    today,
+    forecast,
+    months,
+    perCurrency,
+    debtors: top.map((d) => ({ ...d, name: names.get(d.studentId)?.name ?? "Unknown student" })),
   };
 }

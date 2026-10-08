@@ -467,6 +467,9 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 80 | Plans have 2–12 instalments that must add up exactly to the balance due, dates strictly increasing and not in the past; one active plan per invoice; replace by cancel + new; plans and instalments are never edited or deleted | Keeps the history auditable and the allocation simple; finance staff (not just the admin) manage plans because they do not reduce what is owed |
 | 81 | Fee reminders are computed by a view (`fee_reminders`), never stored or "sent": overdue, or due within 7 days, per unpaid instalment (when on a plan) or per issued invoice (when not) | A reminder appears by itself and disappears the moment it is paid, waived or cancelled; no scheduler, no duplicate sends, no stale copies |
 | 82 | Reminders are in-app only (notification bell, a banner on My fees, a Follow up list for finance); email/SMS/WhatsApp are deliberately not built until the owner has a provider account | No service or cost needed; a sender can later read the same view |
+| 83 | The Outlook forecast shows scheduled due dates as fact and keeps any estimate separate and labelled | Staff must never mistake a guess for money owed |
+| 84 | The estimate is the school's own recent collection rate (share of fees that fell due in the last 180 days that has been paid), applied only to money not yet due, and hidden until at least 100 has fallen due | No invented industry numbers; no estimate on thin history |
+| 85 | Everything in the Outlook is per currency, with no conversion; collected figures are net of refunds | Same rule as the rest of finance |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -523,3 +526,13 @@ Tables `payment_plans` and `plan_installments` (migration `20261011100000`), wri
 Migration `20261012100000_fee_reminders.sql` adds only a view, `fee_reminders` (security_invoker): per unpaid instalment of an active plan, or per issued invoice with no active plan, that is overdue or due within 7 days (`kind` = overdue / due_soon, `days_overdue`, `amount_due`). Families see their own rows (student, or parent via guardian links) through the existing invoice/plan row-level security; finance staff see the school. `lib/fee-reminders.ts` words them; the school layout adds them to the bell for students and parents, My fees shows a banner, and the finance dashboard has a "Follow up" table. The 7-day window is fixed; dates use the database day (UTC = Liberia).
 
 **Not in this slice.** Sending anything outside the app, a per-school reminder window, and forecasting / advanced analytics.
+
+## 30. Finance outlook: forecasting and analytics (Phase 6d)
+
+Migration `20261013100000_finance_receivables.sql` adds a view, `finance_receivables` (security_invoker, authenticated only): everything still to collect with its due date, one row per unpaid instalment of an active plan, or per issued invoice with no active plan. The page `/finance/outlook` (finance tab "Outlook", `finance.manage`) reads it through `getOutlook` in `services/finance.ts`; the maths is pure and tested in `lib/finance-outlook.ts` (`tests/payments/finance-outlook.test.ts`).
+
+**Shows.** What is coming due in buckets (overdue, next 7 days, 8-30, 31-60, 61-90, later) per currency, with a labelled estimate (decisions #83-85); the last six months of charged / collected (net of refunds) / refunded; payment-method share; discounts, scholarships and waivers granted; the ten largest balances.
+
+**Tests.** `supabase/tests/receivables.sql` (16 cases). Whole SQL regression: 948 passing across 20 suites.
+
+**Not in this slice.** Per-class or per-term breakdowns, CSV export of the outlook, and anything that sends messages. This completes Phase 6.
