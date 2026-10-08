@@ -10,6 +10,9 @@ import { formatDateTime } from "@/lib/announcements";
 import { todayIn } from "@/lib/attendance";
 import { listAnnouncements } from "@/services/announcements";
 import { getSchoolProfile } from "@/services/school";
+import { listGuardianLinks } from "@/services/classes";
+import { getFeeReminders } from "@/services/my-fees";
+import { feeReminderItems } from "@/lib/fee-reminders";
 import { AssistantLauncher } from "@/components/ai/assistant";
 import { getAiConfig } from "@/lib/ai/config";
 import { AI_DATA_TOOLS_AVAILABLE, suggestionsFor } from "@/lib/ai/suggestions";
@@ -25,6 +28,18 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
   const schoolProfile = await getSchoolProfile(school.id);
   const tz = schoolProfile?.timezone ?? "Africa/Monrovia";
   const live = (await listAnnouncements(school.id, profile.id, todayIn(tz)).catch(() => [])).filter((a) => a.isLive);
+
+  // Families get their fee reminders in the bell too (computed, so nothing to dismiss).
+  const feeItems =
+    role === "student" || role === "parent"
+      ? await (async () => {
+          const people =
+            role === "parent"
+              ? (await listGuardianLinks(school.id, profile.id, "children")).map((l) => l.person).filter((p) => p !== null).map((p) => ({ id: p.id, name: fullName(p) }))
+              : [{ id: profile.id, name: fullName(profile) }];
+          return feeReminderItems(await getFeeReminders(people.map((p) => p.id)), people, role === "parent");
+        })().catch(() => [])
+      : [];
 
   return (
     <AppShell
@@ -61,15 +76,18 @@ export default async function SchoolLayout({ children }: LayoutProps<"/">) {
       }
       notifications={
         <NotificationsMenu
-          unreadCount={live.filter((a) => !a.isRead).length}
+          unreadCount={live.filter((a) => !a.isRead).length + feeItems.length}
           allHref="/announcements"
-          items={live.slice(0, 6).map((a) => ({
-            id: a.id,
-            title: a.title,
-            href: `/announcements/${a.id}`,
-            meta: `${a.authorName ?? "School office"} · ${formatDateTime(a.publishAt, tz)}`,
-            unread: !a.isRead,
-          }))}
+          items={[
+            ...feeItems.slice(0, 4),
+            ...live.slice(0, 6).map((a) => ({
+              id: a.id,
+              title: a.title,
+              href: `/announcements/${a.id}`,
+              meta: `${a.authorName ?? "School office"} · ${formatDateTime(a.publishAt, tz)}`,
+              unread: !a.isRead,
+            })),
+          ].slice(0, 8)}
         />
       }
     >

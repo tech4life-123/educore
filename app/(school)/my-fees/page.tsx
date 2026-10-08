@@ -11,7 +11,9 @@ import { formatMoney, INVOICE_DISPLAY_LABEL, INVOICE_DISPLAY_TONE, METHOD_LABEL,
 import { formatDate, fullName } from "@/lib/format";
 import { requireSchoolMember } from "@/services/auth";
 import { listGuardianLinks } from "@/services/classes";
-import { getFamilyAccounts, type FamilyBalance } from "@/services/my-fees";
+import { Alert } from "@/components/ui/alert";
+import { feeReminderItems } from "@/lib/fee-reminders";
+import { getFamilyAccounts, getFeeReminders, type FamilyBalance } from "@/services/my-fees";
 
 export const metadata: Metadata = { title: "My fees" };
 
@@ -58,7 +60,9 @@ export default async function MyFeesPage({ searchParams }: PageProps<"/my-fees">
   const params = await searchParams;
   const requested = Array.isArray(params.child) ? params.child[0] : params.child;
   const selected = people.find((p) => p.id === requested) ?? people[0];
-  const [account] = await getFamilyAccounts([selected]);
+  const [[account], reminders] = await Promise.all([getFamilyAccounts([selected]), getFeeReminders([selected.id])]);
+  const reminderItems = feeReminderItems(reminders, people, false);
+  const anyOverdue = reminders.some((r) => r.kind === "overdue");
 
   return (
     <div className="space-y-6">
@@ -75,6 +79,19 @@ export default async function MyFeesPage({ searchParams }: PageProps<"/my-fees">
       ) : null}
 
       {isParent ? <h2 className="text-lg font-semibold text-foreground">{selected.name}</h2> : null}
+
+      {reminderItems.length > 0 ? (
+        <Alert tone={anyOverdue ? "danger" : "warning"} title={anyOverdue ? "Payment overdue" : "Payment due soon"}>
+          <ul className="mt-1 space-y-1">
+            {reminderItems.map((r) => (
+              <li key={r.id}>
+                <span className="font-medium">{r.title}</span> <span className="opacity-80">· {r.meta}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs opacity-80">Please pay at the school’s finance office. If you have already paid, the school will update this once it records the payment.</p>
+        </Alert>
+      ) : null}
 
       <section aria-label="Balances" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {account.balances.length === 0 ? (

@@ -84,6 +84,54 @@ export default async function FinanceOverviewPage() {
         </Card>
       </section>
 
+      <Card aria-labelledby="follow-title">
+        <CardHeader
+          titleId="follow-title"
+          title="Follow up"
+          description="Overdue, or due within a week. Families see the same reminder in their bell and on My fees; it clears itself when paid."
+        />
+        {o.followUp.length === 0 ? (
+          <p className="px-5 py-4 text-sm text-muted">Nothing is overdue or due this week.</p>
+        ) : (
+          <>
+            <Table caption="Fees to follow up">
+              <THead>
+                <TR>
+                  <TH>Student</TH>
+                  <TH>For</TH>
+                  <TH>Due</TH>
+                  <TH className="text-right">Still to pay</TH>
+                  <TH>
+                    <span className="sr-only">Open</span>
+                  </TH>
+                </TR>
+              </THead>
+              <TBody>
+                {o.followUp.map((f) => (
+                  <TR key={`${f.invoiceId}-${f.installment ?? 0}`}>
+                    <TD>{f.studentName}</TD>
+                    <TD className="text-sm">{f.installment ? `Instalment ${f.installment} of ${f.invoiceNumber ?? "invoice"}` : (f.invoiceNumber ?? "Invoice")}</TD>
+                    <TD className="text-sm">
+                      {formatDate(f.dueDate)}
+                      <Badge tone={f.kind === "overdue" ? "danger" : "warning"} className="ml-2">
+                        {f.kind === "overdue" ? `${f.daysOverdue}d late` : "Due soon"}
+                      </Badge>
+                    </TD>
+                    <TD className="text-right">{formatMoney(f.amountDue, f.currency)}</TD>
+                    <TD>
+                      <Link href={`/finance/invoices/${f.invoiceId}`} className="text-xs font-medium text-brand underline">
+                        Open
+                      </Link>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+            {o.followUpTotal > o.followUp.length ? <p className="border-t border-border px-5 py-3 text-xs text-subtle">Showing {o.followUp.length} of {o.followUpTotal}. The Reports page lists everything outstanding.</p> : null}
+          </>
+        )}
+      </Card>
+
       <Card aria-labelledby="pending-title">
         <CardHeader titleId="pending-title" title="Payments waiting for confirmation" description="Nothing counts toward a balance until it is confirmed." />
         {o.pendingPayments.length === 0 ? (

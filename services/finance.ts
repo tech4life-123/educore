@@ -317,13 +317,17 @@ export interface FinanceOverview {
   /** Instalments of active payment plans that are past due and unpaid. */
   overdueInstallments: number;
   pendingPayments: PaymentListRow[];
+  /** Overdue or due within a week, soonest first — who finance should chase. */
+  followUp: { invoiceId: string; invoiceNumber: string | null; studentName: string; installment: number | null; currency: string; dueDate: string; amountDue: number; kind: "overdue" | "due_soon"; daysOverdue: number }[];
+  followUpTotal: number;
   pendingCount: number;
   collectedThisMonth: { currency: string; amount: number }[];
 }
 
 export async function getFinanceOverview(monthStart: string): Promise<FinanceOverview> {
   const supabase = await createClient();
-  const [bal, overdue, pendingCount, month, pending, monthRefunds, lateInstallments] = await Promise.all([
+  const [follow, bal, overdue, pendingCount, month, pending, monthRefunds, lateInstallments] = await Promise.all([
+    supabase.from("fee_reminders").select("student_id, invoice_id, invoice_number, seq, currency, due_date, amount_due, kind, days_overdue", { count: "exact" }).order("due_date").limit(8),
     supabase.from("student_balances").select("currency, total_charges, total_paid, balance, total_refunded").limit(10000),
     supabase.from("invoice_balances").select("invoice_id", { count: "exact", head: true }).eq("display_status", "overdue"),
     supabase.from("payments").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
@@ -332,8 +336,9 @@ export async function getFinanceOverview(monthStart: string): Promise<FinanceOve
     supabase.from("payment_refunds").select("currency, amount").gte("refunded_on", monthStart).limit(10000),
     supabase.from("plan_installment_status").select("installment_id", { count: "exact", head: true }).eq("status", "overdue"),
   ]);
-  for (const r of [bal, overdue, pendingCount, month, monthRefunds, lateInstallments]) if (r.error) fail("finance overview", r.error);
+  for (const r of [follow, bal, overdue, pendingCount, month, monthRefunds, lateInstallments]) if (r.error) fail("finance overview", r.error);
 
+  const followNames = await studentMap((follow.data ?? []).map((r) => r.student_id ?? "").filter(Boolean));
   const per = new Map<string, { outstanding: number; charged: number; collected: number }>();
   for (const b of bal.data ?? []) {
     const c = b.currency ?? "USD";
@@ -352,6 +357,18 @@ export async function getFinanceOverview(monthStart: string): Promise<FinanceOve
     perCurrency: [...per.entries()].map(([currency, v]) => ({ currency, ...v })).sort((a, b) => a.currency.localeCompare(b.currency)),
     overdueInvoices: overdue.count ?? 0,
     overdueInstallments: lateInstallments.count ?? 0,
+    followUp: (follow.data ?? []).map((r) => ({
+      invoiceId: r.invoice_id ?? "",
+      invoiceNumber: r.invoice_number,
+      studentName: followNames.get(r.student_id ?? "")?.name ?? "Unknown student",
+      installment: r.seq,
+      currency: r.currency ?? "USD",
+      dueDate: r.due_date ?? "",
+      amountDue: num(r.amount_due),
+      kind: r.kind === "overdue" ? ("overdue" as const) : ("due_soon" as const),
+      daysOverdue: Number(r.days_overdue ?? 0),
+    })),
+    followUpTotal: follow.count ?? 0,
     pendingPayments: pending,
     pendingCount: pendingCount.count ?? 0,
     collectedThisMonth: [...monthly.entries()].map(([currency, amount]) => ({ currency, amount })),

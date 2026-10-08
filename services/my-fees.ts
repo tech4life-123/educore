@@ -80,6 +80,48 @@ export interface FamilyAccount {
   payments: FamilyPayment[];
 }
 
+export interface FeeReminder {
+  studentId: string;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  /** Instalment number when the invoice is on a payment plan. */
+  installment: number | null;
+  currency: string;
+  dueDate: string;
+  amountDue: number;
+  kind: "overdue" | "due_soon";
+  daysOverdue: number;
+}
+
+/**
+ * What is overdue or due within a week for the given people. Computed by the
+ * database from the ledger and plans, so there is nothing to mark as read: it
+ * is there until it is paid.
+ */
+export async function getFeeReminders(personIds: string[]): Promise<FeeReminder[]> {
+  const ids = [...new Set(personIds)];
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fee_reminders")
+    .select("student_id, invoice_id, invoice_number, seq, currency, due_date, amount_due, kind, days_overdue")
+    .in("student_id", ids)
+    .order("due_date")
+    .limit(100);
+  if (error) fail("reminders", error);
+  return (data ?? []).map((r) => ({
+    studentId: r.student_id ?? "",
+    invoiceId: r.invoice_id ?? "",
+    invoiceNumber: r.invoice_number,
+    installment: r.seq,
+    currency: r.currency ?? "USD",
+    dueDate: r.due_date ?? "",
+    amountDue: num(r.amount_due),
+    kind: r.kind === "overdue" ? "overdue" : "due_soon",
+    daysOverdue: Number(r.days_overdue ?? 0),
+  }));
+}
+
 function fail(scope: string, error: { code?: string } | null): never {
   console.error(`[my-fees] ${scope} failed`, error?.code ?? "unknown");
   throw new Error(`Unable to load ${scope}`);

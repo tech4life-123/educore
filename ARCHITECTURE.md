@@ -465,6 +465,8 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 78 | Only `school_admin` may grant adjustments, void them or refund; finance officers can see but not do | Reducing what a family owes or returning money is a higher-trust act than recording it; enforced in the database, the UI only hides the controls |
 | 79 | A payment plan is an agreement only: no ledger entries, no change to what an invoice owes; settled money (net payments + discounts since the plan began) is allocated to instalments in date order by a view | Refunds, reversals and waivers show up automatically and there is nothing to keep in sync; missing an instalment never creates a charge |
 | 80 | Plans have 2–12 instalments that must add up exactly to the balance due, dates strictly increasing and not in the past; one active plan per invoice; replace by cancel + new; plans and instalments are never edited or deleted | Keeps the history auditable and the allocation simple; finance staff (not just the admin) manage plans because they do not reduce what is owed |
+| 81 | Fee reminders are computed by a view (`fee_reminders`), never stored or "sent": overdue, or due within 7 days, per unpaid instalment (when on a plan) or per issued invoice (when not) | A reminder appears by itself and disappears the moment it is paid, waived or cancelled; no scheduler, no duplicate sends, no stale copies |
+| 82 | Reminders are in-app only (notification bell, a banner on My fees, a Follow up list for finance); email/SMS/WhatsApp are deliberately not built until the owner has a provider account | No service or cost needed; a sender can later read the same view |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -515,3 +517,9 @@ Tables `invoice_adjustments` and `payment_refunds` (migration `20261010100000`) 
 Tables `payment_plans` and `plan_installments` (migration `20261011100000`), written only by `finance_create_payment_plan` and `finance_cancel_payment_plan` (finance staff; audited as PLAN_CREATED / PLAN_CANCELLED). `payment_plans.base_settled` records what was already paid or waived when the plan began. The view `plan_installment_status` computes, per instalment, `paid = min(amount, max(0, settled_now − base_settled − earlier instalments))` and a status: paid / partial / upcoming / overdue / inactive (plan cancelled or invoice no longer issued). The invoice itself keeps its own due date and "overdue" status; instalment lateness is shown separately (invoice page, finance dashboard count, "My fees").
 
 **Not in this slice.** Automated reminders (next: they will read `plan_installment_status`), forecasting and advanced analytics.
+
+## 29. In-app fee reminders (Phase 6c)
+
+Migration `20261012100000_fee_reminders.sql` adds only a view, `fee_reminders` (security_invoker): per unpaid instalment of an active plan, or per issued invoice with no active plan, that is overdue or due within 7 days (`kind` = overdue / due_soon, `days_overdue`, `amount_due`). Families see their own rows (student, or parent via guardian links) through the existing invoice/plan row-level security; finance staff see the school. `lib/fee-reminders.ts` words them; the school layout adds them to the bell for students and parents, My fees shows a banner, and the finance dashboard has a "Follow up" table. The 7-day window is fixed; dates use the database day (UTC = Liberia).
+
+**Not in this slice.** Sending anything outside the app, a per-school reminder window, and forecasting / advanced analytics.

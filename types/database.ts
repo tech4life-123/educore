@@ -2662,6 +2662,22 @@ export type Database = {
         }
         Relationships: []
       }
+      fee_reminders: {
+        Row: {
+          school_id: string | null
+          student_id: string | null
+          invoice_id: string | null
+          installment_id: string | null
+          seq: number | null
+          invoice_number: string | null
+          currency: string | null
+          due_date: string | null
+          amount_due: number | null
+          kind: string | null
+          days_overdue: number | null
+        }
+        Relationships: []
+      }
       finance_students: {
         Row: {
           school_id: string | null
