@@ -64,7 +64,7 @@ export default async function ProvidersPage() {
                 {!isImplemented(a.provider as (typeof PROVIDER_CODES)[number]) ? (
                   <p className="text-sm text-muted">This provider’s integration is not built yet, so messages to this URL are refused.</p>
                 ) : null}
-                {canManage ? <ProviderAccountActions accountId={a.id} status={a.status as "active" | "disabled"} /> : null}
+                {canManage ? <ProviderAccountActions accountId={a.id} status={a.status as "active" | "disabled"} sandboxTest={a.provider === "mock" && a.environment === "sandbox"} /> : null}
               </CardBody>
             </Card>
           );
