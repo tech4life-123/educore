@@ -463,6 +463,8 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 76 | Discounts, scholarships and waivers are CREDIT `adjustment` ledger entries on issued invoices; voiding posts an offsetting `reversal` | The ledger stays append-only and every change is traceable; invoice lines stay as issued so the original fee is never rewritten |
 | 77 | Refunds are DEBIT `refund` ledger entries against a posted payment; a fully refunded payment becomes `refunded` and its receipt stops verifying | Money handed back is visible in the same ledger; refunds cannot exceed what was paid and cannot be edited or deleted |
 | 78 | Only `school_admin` may grant adjustments, void them or refund; finance officers can see but not do | Reducing what a family owes or returning money is a higher-trust act than recording it; enforced in the database, the UI only hides the controls |
+| 79 | A payment plan is an agreement only: no ledger entries, no change to what an invoice owes; settled money (net payments + discounts since the plan began) is allocated to instalments in date order by a view | Refunds, reversals and waivers show up automatically and there is nothing to keep in sync; missing an instalment never creates a charge |
+| 80 | Plans have 2–12 instalments that must add up exactly to the balance due, dates strictly increasing and not in the past; one active plan per invoice; replace by cancel + new; plans and instalments are never edited or deleted | Keeps the history auditable and the allocation simple; finance staff (not just the admin) manage plans because they do not reduce what is owed |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -507,3 +509,9 @@ Tables `invoice_adjustments` and `payment_refunds` (migration `20261010100000`) 
 **Reports.** Dashboard "collected" and the collections report are net of refunds. A partly refunded payment counts only for what the school kept.
 
 **Not in this slice.** Installments / payment plans, automated reminders, forecasting and advanced analytics (rest of Phase 6).
+
+## 28. Payment plans / instalments (Phase 6b)
+
+Tables `payment_plans` and `plan_installments` (migration `20261011100000`), written only by `finance_create_payment_plan` and `finance_cancel_payment_plan` (finance staff; audited as PLAN_CREATED / PLAN_CANCELLED). `payment_plans.base_settled` records what was already paid or waived when the plan began. The view `plan_installment_status` computes, per instalment, `paid = min(amount, max(0, settled_now − base_settled − earlier instalments))` and a status: paid / partial / upcoming / overdue / inactive (plan cancelled or invoice no longer issued). The invoice itself keeps its own due date and "overdue" status; instalment lateness is shown separately (invoice page, finance dashboard count, "My fees").
+
+**Not in this slice.** Automated reminders (next: they will read `plan_installment_status`), forecasting and advanced analytics.

@@ -255,6 +255,54 @@ export async function refundPaymentAction(_prev: ActionState, formData: FormData
   return { status: "success", message: "Refund recorded. Hand over the money and keep the reference." };
 }
 
+// ------------------------------------------------------ payment plans (finance)
+// A plan is an agreement to pay in instalments; it moves no money. The page
+// only turns "N instalments, first due on X, every Y days" into a list; the
+// database checks the list adds up to what is owed.
+
+export async function createPaymentPlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const supabase = await guard();
+  const id = str(formData, "invoice_id");
+  const count = Number(str(formData, "count"));
+  const first = str(formData, "first_due");
+  const every = Number(str(formData, "every_days"));
+  const note = str(formData, "note");
+  if (!UUID.test(id)) return err("Invoice not found.");
+  if (!Number.isInteger(count) || count < 2 || count > 12) return err("Choose between 2 and 12 instalments.");
+  if (!DATE.test(first)) return err("Choose the date the first instalment is due.");
+  if (!Number.isInteger(every) || every < 1 || every > 366) return err("Days between instalments must be between 1 and 366.");
+  const { data: bal, error: balError } = await supabase.from("invoice_balances").select("balance_due").eq("invoice_id", id).maybeSingle();
+  if (balError || !bal) return err("Invoice not found.");
+  const cents = Math.round(Number(bal.balance_due) * 100);
+  if (!(cents > 0)) return err("This invoice has nothing left to pay.");
+  if (cents < count) return err("There isn’t enough left to split that many ways.");
+  const base = Math.floor(cents / count);
+  const extra = cents - base * count; // the first few instalments take the odd cents
+  const start = new Date(`${first}T00:00:00Z`);
+  const items = Array.from({ length: count }, (_, i) => {
+    const d = new Date(start.getTime() + i * every * 86_400_000);
+    return { due_date: d.toISOString().slice(0, 10), amount: (base + (i < extra ? 1 : 0)) / 100 };
+  });
+  const { error } = await supabase.rpc("finance_create_payment_plan", { p_invoice_id: id, p_installments: items, p_note: note || (null as unknown as string) });
+  if (error) return err(friendlyDbError(error, "The plan couldn’t be created."));
+  revalidatePath("/finance", "layout");
+  revalidatePath("/my-fees");
+  return { status: "success", message: `Plan created: ${count} instalments.` };
+}
+
+export async function cancelPaymentPlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const supabase = await guard();
+  const id = str(formData, "plan_id");
+  const reason = str(formData, "reason");
+  if (!UUID.test(id)) return err("Plan not found.");
+  if (reason.length < 3) return err("Give a reason (at least 3 characters).");
+  const { error } = await supabase.rpc("finance_cancel_payment_plan", { p_plan_id: id, p_reason: reason });
+  if (error) return err(friendlyDbError(error, "The plan couldn’t be cancelled."));
+  revalidatePath("/finance", "layout");
+  revalidatePath("/my-fees");
+  return { status: "success", message: "Plan cancelled. The invoice still owes the same amount." };
+}
+
 // -------------------------------------------------- fee configuration (admin)
 
 export async function createFeeStructureAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

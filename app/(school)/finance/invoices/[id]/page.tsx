@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ApplyAdjustmentForm, RefundForm, VoidAdjustmentForm } from "@/components/finance/adjustment-forms";
+import { CancelPlanForm, CreatePlanForm } from "@/components/finance/plan-forms";
 import { PaymentActions } from "@/components/finance/payment-actions";
 import { ActionForm } from "@/components/ui/action-form";
 import { Alert } from "@/components/ui/alert";
@@ -22,10 +23,21 @@ import {
   PAYMENT_STATUS_TONE,
 } from "@/lib/finance";
 import { formatDate } from "@/lib/format";
+import { todayIn } from "@/lib/attendance";
 import { hasCapability } from "@/lib/auth/roles";
 import { requireCapability } from "@/services/auth";
 import { getInvoiceDetail } from "@/services/finance";
+import { getSchoolProfile } from "@/services/school";
 import { cancelInvoiceAction, issueInvoiceAction } from "../../actions";
+
+const INSTALLMENT_LABEL: Record<string, string> = { paid: "Paid", partial: "Part paid", upcoming: "Upcoming", overdue: "Overdue", inactive: "Inactive" };
+const INSTALLMENT_TONE: Record<string, "neutral" | "brand" | "success" | "warning" | "danger"> = {
+  paid: "success",
+  partial: "warning",
+  upcoming: "brand",
+  overdue: "danger",
+  inactive: "neutral",
+};
 
 export const metadata: Metadata = { title: "Invoice" };
 
@@ -33,13 +45,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function InvoiceDetailPage({ params, searchParams }: PageProps<"/finance/invoices/[id]">) {
   const { id } = await params;
-  const { profile } = await requireCapability("finance.manage", `/finance/invoices/${id}`);
+  const { profile, school } = await requireCapability("finance.manage", `/finance/invoices/${id}`);
   const isAdmin = hasCapability(profile.role, "school.manage");
   if (!UUID.test(id)) notFound();
   const sp = await searchParams;
   const detail = await getInvoiceDetail(id);
   if (!detail) notFound();
-  const { invoice, items, balance, student, payments, adjustments, refunds } = detail;
+  const { invoice, items, balance, student, payments, adjustments, refunds, plans } = detail;
+  const activePlan = plans.find((p) => p.status === "active") ?? null;
+  const today = todayIn((await getSchoolProfile(school.id))?.timezone ?? "Africa/Monrovia");
   const refundedByPayment = new Map<string, number>();
   for (const r of refunds) refundedByPayment.set(r.payment_id, (refundedByPayment.get(r.payment_id) ?? 0) + r.amount);
   
@@ -255,6 +269,61 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
               </TBody>
             </Table>
           )}
+        </Card>
+      ) : null}
+
+      {!isDraft && (isIssued || plans.length > 0) ? (
+        <Card aria-labelledby="plan-title">
+          <CardHeader
+            titleId="plan-title"
+            title="Payment plan"
+            description="An agreement to pay in instalments. It doesn’t change what is owed; payments are recorded as usual and fill the instalments in date order."
+          />
+          {activePlan ? (
+            <>
+              <Table caption="Instalments of the active payment plan">
+                <THead>
+                  <TR>
+                    <TH>#</TH>
+                    <TH>Due</TH>
+                    <TH className="text-right">Amount</TH>
+                    <TH className="text-right">Paid</TH>
+                    <TH>Status</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {activePlan.installments.map((n) => (
+                    <TR key={n.installmentId}>
+                      <TD>{n.seq}</TD>
+                      <TD className="text-sm text-muted">{formatDate(n.dueDate)}</TD>
+                      <TD className="text-right">{formatMoney(n.amount, cur)}</TD>
+                      <TD className="text-right">{formatMoney(n.paid, cur)}</TD>
+                      <TD>
+                        <Badge tone={INSTALLMENT_TONE[n.status] ?? "neutral"}>{INSTALLMENT_LABEL[n.status] ?? n.status}</Badge>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+              {activePlan.note ? <p className="border-t border-border px-5 py-3 text-sm text-muted">{activePlan.note}</p> : null}
+              {isIssued ? (
+                <CardBody>
+                  <CancelPlanForm planId={activePlan.id} />
+                </CardBody>
+              ) : null}
+            </>
+          ) : isIssued && balance.balanceDue > 0 ? (
+            <CardBody>
+              <CreatePlanForm invoiceId={invoice.id} balanceDue={balance.balanceDue} currency={cur} today={today} />
+            </CardBody>
+          ) : (
+            <p className="px-5 py-4 text-sm text-muted">No active plan.</p>
+          )}
+          {plans.filter((p) => p.status === "cancelled").length > 0 ? (
+            <p className="border-t border-border px-5 py-3 text-xs text-subtle">
+              Earlier plans cancelled: {plans.filter((p) => p.status === "cancelled").map((p) => `${formatDate(p.created_at)} (${p.cancelled_reason})`).join("; ")}
+            </p>
+          ) : null}
         </Card>
       ) : null}
 

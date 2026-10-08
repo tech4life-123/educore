@@ -136,12 +136,39 @@ export default async function MyFeesPage({ searchParams }: PageProps<"/my-fees">
                             <TD className="font-medium">Total</TD>
                             <TD className="text-right font-medium tabular-nums">{formatMoney(i.totalAmount, i.currency)}</TD>
                           </TR>
+                          {i.adjustmentsTotal > 0 ? (
+                            <TR>
+                              <TD className="text-muted">Discounts &amp; waivers</TD>
+                              <TD className="text-right tabular-nums text-muted">− {formatMoney(i.adjustmentsTotal, i.currency)}</TD>
+                            </TR>
+                          ) : null}
                           <TR>
                             <TD className="text-muted">Paid so far</TD>
                             <TD className="text-right tabular-nums text-muted">{formatMoney(i.amountPaid, i.currency)}</TD>
                           </TR>
                         </TBody>
                       </Table>
+                      {i.installments.length > 0 ? (
+                        <div className="mt-4">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted">Payment plan</p>
+                          <ul className="mt-2 divide-y divide-border rounded-md border border-border text-sm">
+                            {i.installments.map((n) => (
+                              <li key={n.seq} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                                <span>
+                                  <span className="font-medium text-foreground">Instalment {n.seq}</span>
+                                  <span className="ml-2 text-xs text-muted">due {formatDate(n.dueDate)}</span>
+                                </span>
+                                <span className="flex items-center gap-3">
+                                  <span className="tabular-nums">{formatMoney(n.amount, i.currency)}</span>
+                                  <Badge tone={n.status === "paid" ? "success" : n.status === "overdue" ? "danger" : n.status === "partial" ? "warning" : "brand"}>
+                                    {n.status === "paid" ? "Paid" : n.status === "overdue" ? "Overdue" : n.status === "partial" ? "Part paid" : "Upcoming"}
+                                  </Badge>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   </details>
                 </li>

@@ -20,6 +20,17 @@ export type InvoiceItemRow = Tables<"invoice_items">;
 export type LedgerEntryRow = Tables<"student_account_entries">;
 export type AdjustmentRow = Tables<"invoice_adjustments">;
 export type RefundRow = Tables<"payment_refunds">;
+export type PlanRow = Tables<"payment_plans">;
+export interface InstallmentRow {
+  installmentId: string;
+  seq: number;
+  dueDate: string;
+  amount: number;
+  paid: number;
+  remaining: number;
+  /** paid | partial | upcoming | overdue | inactive */
+  status: string;
+}
 
 export interface StudentRef {
   studentId: string;
@@ -164,6 +175,8 @@ export interface InvoiceDetail {
   payments: PaymentRow[];
   adjustments: AdjustmentRow[];
   refunds: RefundRow[];
+  /** Plans on this invoice, newest first; the active one (if any) has `status: "active"`. */
+  plans: (PlanRow & { installments: InstallmentRow[] })[];
   academicYear: string | null;
   term: string | null;
 }
@@ -174,7 +187,7 @@ export async function getInvoiceDetail(invoiceId: string): Promise<InvoiceDetail
   if (error) fail("invoice", error);
   if (!invoice) return null;
 
-  const [items, bal, pays, year, term, adjs, refs] = await Promise.all([
+  const [items, bal, pays, year, term, adjs, refs, planRows, instRows] = await Promise.all([
     supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("created_at").order("id"),
     supabase.from("invoice_balances").select("total_amount, amount_paid, balance_due, display_status, adjustments_total, amount_refunded").eq("invoice_id", invoiceId).maybeSingle(),
     supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
@@ -184,8 +197,10 @@ export async function getInvoiceDetail(invoiceId: string): Promise<InvoiceDetail
       : Promise.resolve({ data: null, error: null }),
     supabase.from("invoice_adjustments").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
     supabase.from("payment_refunds").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
+    supabase.from("payment_plans").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
+    supabase.from("plan_installment_status").select("installment_id, plan_id, seq, due_date, amount, paid, remaining, status").eq("invoice_id", invoiceId).order("seq"),
   ]);
-  for (const r of [items, bal, pays, year, term, adjs, refs]) if (r.error) fail("invoice", r.error);
+  for (const r of [items, bal, pays, year, term, adjs, refs, planRows, instRows]) if (r.error) fail("invoice", r.error);
 
   return {
     invoice,
@@ -202,6 +217,20 @@ export async function getInvoiceDetail(invoiceId: string): Promise<InvoiceDetail
     payments: pays.data ?? [],
     adjustments: (adjs.data ?? []).map((a) => ({ ...a, amount: num(a.amount) })),
     refunds: (refs.data ?? []).map((r) => ({ ...r, amount: num(r.amount) })),
+    plans: (planRows.data ?? []).map((p) => ({
+      ...p,
+      installments: (instRows.data ?? [])
+        .filter((i) => i.plan_id === p.id)
+        .map((i) => ({
+          installmentId: i.installment_id ?? "",
+          seq: i.seq ?? 0,
+          dueDate: i.due_date ?? "",
+          amount: num(i.amount),
+          paid: num(i.paid),
+          remaining: num(i.remaining),
+          status: i.status ?? "inactive",
+        })),
+    })),
     academicYear: year.data?.name ?? null,
     term: term.data?.name ?? null,
   };
@@ -285,6 +314,8 @@ export interface FinanceOverview {
   /** Outstanding (what students owe) and collected, per currency — never mixed. */
   perCurrency: { currency: string; outstanding: number; charged: number; collected: number }[];
   overdueInvoices: number;
+  /** Instalments of active payment plans that are past due and unpaid. */
+  overdueInstallments: number;
   pendingPayments: PaymentListRow[];
   pendingCount: number;
   collectedThisMonth: { currency: string; amount: number }[];
@@ -292,15 +323,16 @@ export interface FinanceOverview {
 
 export async function getFinanceOverview(monthStart: string): Promise<FinanceOverview> {
   const supabase = await createClient();
-  const [bal, overdue, pendingCount, month, pending, monthRefunds] = await Promise.all([
+  const [bal, overdue, pendingCount, month, pending, monthRefunds, lateInstallments] = await Promise.all([
     supabase.from("student_balances").select("currency, total_charges, total_paid, balance, total_refunded").limit(10000),
     supabase.from("invoice_balances").select("invoice_id", { count: "exact", head: true }).eq("display_status", "overdue"),
     supabase.from("payments").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
     supabase.from("payments").select("currency, amount").eq("status", "posted").gte("paid_on", monthStart).limit(10000),
     listPayments({ status: "open", limit: 8 }),
     supabase.from("payment_refunds").select("currency, amount").gte("refunded_on", monthStart).limit(10000),
+    supabase.from("plan_installment_status").select("installment_id", { count: "exact", head: true }).eq("status", "overdue"),
   ]);
-  for (const r of [bal, overdue, pendingCount, month, monthRefunds]) if (r.error) fail("finance overview", r.error);
+  for (const r of [bal, overdue, pendingCount, month, monthRefunds, lateInstallments]) if (r.error) fail("finance overview", r.error);
 
   const per = new Map<string, { outstanding: number; charged: number; collected: number }>();
   for (const b of bal.data ?? []) {
@@ -319,6 +351,7 @@ export async function getFinanceOverview(monthStart: string): Promise<FinanceOve
   return {
     perCurrency: [...per.entries()].map(([currency, v]) => ({ currency, ...v })).sort((a, b) => a.currency.localeCompare(b.currency)),
     overdueInvoices: overdue.count ?? 0,
+    overdueInstallments: lateInstallments.count ?? 0,
     pendingPayments: pending,
     pendingCount: pendingCount.count ?? 0,
     collectedThisMonth: [...monthly.entries()].map(([currency, amount]) => ({ currency, amount })),

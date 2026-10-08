@@ -2536,6 +2536,40 @@ export type Database = {
         Update: { [_ in never]: never }
         Relationships: []
       }
+      payment_plans: {
+        Row: {
+          id: string
+          school_id: string
+          invoice_id: string
+          student_id: string
+          currency: string
+          base_settled: number
+          note: string | null
+          status: string
+          cancelled_reason: string | null
+          cancelled_by: string | null
+          cancelled_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: { [_ in never]: never }
+        Update: { [_ in never]: never }
+        Relationships: []
+      }
+      plan_installments: {
+        Row: {
+          id: string
+          school_id: string
+          plan_id: string
+          seq: number
+          due_date: string
+          amount: number
+          created_at: string
+        }
+        Insert: { [_ in never]: never }
+        Update: { [_ in never]: never }
+        Relationships: []
+      }
     }
     Views: {
       document_request_details: {
@@ -2610,6 +2644,24 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_installment_status: {
+        Row: {
+          installment_id: string | null
+          school_id: string | null
+          plan_id: string | null
+          invoice_id: string | null
+          student_id: string | null
+          currency: string | null
+          seq: number | null
+          due_date: string | null
+          amount: number | null
+          paid: number | null
+          remaining: number | null
+          status: string | null
+          plan_status: string | null
+        }
+        Relationships: []
+      }
       finance_students: {
         Row: {
           school_id: string | null
@@ -2667,6 +2719,14 @@ export type Database = {
           p_date: string
         }
         Returns: string
+      }
+      finance_create_payment_plan: {
+        Args: { p_installments: Json; p_invoice_id: string; p_note: string }
+        Returns: string
+      }
+      finance_cancel_payment_plan: {
+        Args: { p_plan_id: string; p_reason: string }
+        Returns: undefined
       }
       finance_cancel_invoice: {
         Args: { p_invoice_id: string; p_reason: string }

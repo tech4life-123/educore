@@ -33,6 +33,15 @@ export interface FamilyInvoiceItem {
   amount: number;
 }
 
+export interface FamilyInstallment {
+  seq: number;
+  dueDate: string;
+  amount: number;
+  paid: number;
+  /** paid | partial | upcoming | overdue */
+  status: string;
+}
+
 export interface FamilyInvoice {
   invoiceId: string;
   invoiceNumber: string | null;
@@ -46,6 +55,8 @@ export interface FamilyInvoice {
   adjustmentsTotal: number;
   balanceDue: number;
   items: FamilyInvoiceItem[];
+  /** The active payment plan's instalments, if the school agreed one. */
+  installments: FamilyInstallment[];
 }
 
 export interface FamilyPayment {
@@ -98,7 +109,7 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
   if (ids.length === 0) return [];
 
   const supabase = await createClient();
-  const [bal, inv, pay] = await Promise.all([
+  const [bal, inv, pay, inst] = await Promise.all([
     supabase.from("student_balances").select("student_id, currency, total_charges, total_paid, balance, total_adjustments, total_refunded").in("student_id", ids).order("currency"),
     supabase
       .from("invoice_balances")
@@ -113,8 +124,15 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
       .order("paid_on", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500),
+    supabase
+      .from("plan_installment_status")
+      .select("invoice_id, seq, due_date, amount, paid, status")
+      .in("student_id", ids)
+      .neq("status", "inactive")
+      .order("seq")
+      .limit(2000),
   ]);
-  for (const r of [bal, inv, pay]) if (r.error) fail("fees", r.error);
+  for (const r of [bal, inv, pay, inst]) if (r.error) fail("fees", r.error);
 
   const invoiceRows = inv.data ?? [];
   const paymentRows = pay.data ?? [];
@@ -139,6 +157,7 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
   const receiptByPayment = new Map((receipts.data ?? []).map((r) => [r.payment_id, r]));
   const invoiceNumber = new Map(invoiceRows.map((i) => [i.invoice_id ?? "", i.invoice_number]));
 
+  const installmentsByInvoice = groupBy(inst.data ?? [], (r) => r.invoice_id ?? "");
   const balancesByStudent = groupBy(bal.data ?? [], (b) => b.student_id ?? "");
   const invoicesByStudent = groupBy(invoiceRows, (i) => i.student_id ?? "");
   const paymentsByStudent = groupBy(paymentRows, (p) => p.student_id);
@@ -166,6 +185,13 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
       adjustmentsTotal: num(i.adjustments_total),
       balanceDue: num(i.balance_due),
       items: (itemsByInvoice.get(i.invoice_id ?? "") ?? []).map((it) => ({ id: it.id, description: it.description, amount: num(it.amount) })),
+      installments: (installmentsByInvoice.get(i.invoice_id ?? "") ?? []).map((r) => ({
+        seq: r.seq ?? 0,
+        dueDate: r.due_date ?? "",
+        amount: num(r.amount),
+        paid: num(r.paid),
+        status: r.status ?? "upcoming",
+      })),
     })),
     payments: (paymentsByStudent.get(person.id) ?? []).map((p) => ({
       id: p.id,

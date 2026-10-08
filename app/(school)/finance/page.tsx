@@ -53,6 +53,7 @@ export default async function FinanceOverviewPage() {
           <CardBody>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Overdue invoices</p>
             <p className="mt-1 text-2xl font-semibold text-foreground">{o.overdueInvoices}</p>
+            {o.overdueInstallments > 0 ? <p className="mt-1 text-xs text-muted">{o.overdueInstallments} late instalment{o.overdueInstallments === 1 ? "" : "s"} on payment plans</p> : null}
             <Link href="/finance/invoices?status=overdue" className="mt-1 inline-block text-xs font-medium text-brand underline">
               View
             </Link>
