@@ -363,6 +363,16 @@ A review queue for the custom-domain requests schools submit through §21 — `/
 
 **`types/database.ts` needs regenerating (`npm run db:types`) before this typechecks.** Both new call sites — `services/platform.ts`'s `.from("school_domains")` select and the server action's `.rpc("platform_set_domain_verification", …)` — reference types the generator hasn't produced yet, since it was last run before the §21 migrations existed. `npm run typecheck` currently fails with exactly those two call sites and nothing else; running `db:types` against the live project is the only fix (there's no live Supabase connection available to do it from this session).
 
+### 21.4 Connecting custom domains to Vercel (step 5)
+
+`lib/vercel-domains.ts` wraps the four Vercel REST calls needed (add domain to project, verify, read, remove, plus the domain config read for "is DNS pointing here"). It is configured by `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID` and optionally `VERCEL_TEAM_ID` (see `.env.example`); with those unset `getVercelConfig()` is null and the Domains page behaves as in 21.3.
+
+**Flow (super admin, `/platform/domains`).** *Connect to Vercel* adds the hostname to the project and stores the DNS records the school must add (in plain words, in `verification_token`; the school cannot read that column, so the super admin relays them). *Check DNS* asks Vercel to re-verify; when the domain is verified and not misconfigured it calls the existing `platform_set_domain_verification` to mark it `verified` and sets `ssl_status` to `issued` (Vercel issues the certificate by itself once DNS is right, so this is inferred, not observed). *Reject* also removes the domain from Vercel. No migration: the existing `vercel_domain_id` column marks "connected".
+
+**Tests.** `tests/payments/vercel-domains.test.ts` runs the client against a fake `fetch` (paths, team parameter, bearer header, idempotent add, records, no token in errors). It has **not** been run against the live Vercel API: the response shapes are read defensively, and the first real connection should be watched.
+
+**Not in this step.** Showing the DNS records to the school admin, removing an already-verified domain, and the marketing page and subdomain provisioning (steps 6 and 7).
+
 ## 23. Finance (Phase 1 — foundation)
 
 Spec: "Finance, Payments & Document Services". Phase 1 delivers the database foundation only (no pages yet): fee structures, student accounts, invoices, a payment lifecycle with manual recording, an append-only ledger, derived balances and a financial audit log. Migrations: `20261007100000_finance_officer_role.sql` (run first, alone — a new enum value cannot be used in the transaction that adds it) and `20261007100100_finance_foundation.sql`. Tests: `supabase/tests/finance.sql`.
@@ -470,6 +480,9 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 83 | The Outlook forecast shows scheduled due dates as fact and keeps any estimate separate and labelled | Staff must never mistake a guess for money owed |
 | 84 | The estimate is the school's own recent collection rate (share of fees that fell due in the last 180 days that has been paid), applied only to money not yet due, and hidden until at least 100 has fallen due | No invented industry numbers; no estimate on thin history |
 | 85 | Everything in the Outlook is per currency, with no conversion; collected figures are net of refunds | Same rule as the rest of finance |
+| 86 | Vercel domain connection is off unless `VERCEL_API_TOKEN` and `VERCEL_PROJECT_ID` are set; unset, the dashboard keeps its manual review | Nothing changes for a deployment that has not opted in; the token lives only in server environment variables |
+| 87 | With Vercel on, a custom domain becomes `verified` only after Vercel confirms ownership and correct DNS (Check DNS); "pending" plus a stored Vercel link means "waiting for DNS" | `verified` is what makes the proxy route the host, so it must mean the domain really works. No schema change needed |
+| 88 | Only a super admin can connect, check or reject; the Vercel call happens in the server action after that check, and Vercel errors are shown without the token | Same boundary as the rest of the platform tools |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 

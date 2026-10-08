@@ -10,7 +10,8 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { requireSuperAdmin } from "@/services/auth";
 import { listDomainsForPlatform, type PlatformDomainRow } from "@/services/platform";
-import { setDomainVerificationAction } from "./actions";
+import { getVercelConfig } from "@/lib/vercel-domains";
+import { checkDomainAction, connectDomainAction, setDomainVerificationAction } from "./actions";
 
 export const metadata: Metadata = { title: "Domains" };
 
@@ -34,14 +35,17 @@ export default async function PlatformDomainsPage() {
   const custom = result.domains.filter((d) => d.domainType === "custom");
   const pending = custom.filter((d) => d.verificationStatus === "pending");
   const decided = custom.filter((d) => d.verificationStatus !== "pending");
+  const vercel = getVercelConfig() !== null;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Domains</h1>
         <p className="mt-1 text-sm text-muted">
-          Custom-domain requests submitted by schools. Approving one here only records a review decision — it doesn’t yet point DNS
-          or issue a certificate; that connection to Vercel is a later phase.
+          Custom-domain requests submitted by schools.{" "}
+          {vercel
+            ? "Connect a request to Vercel, give the school the DNS records shown, then check DNS. It becomes verified, and starts routing, once Vercel confirms the DNS."
+            : "Vercel is not connected on this deployment, so approving a request only records a review decision; DNS and certificates are handled by hand."}
         </p>
       </div>
 
@@ -54,7 +58,7 @@ export default async function PlatformDomainsPage() {
         {pending.length === 0 ? (
           <EmptyState icon="domains" title="Nothing waiting" description="New custom-domain requests from schools will show up here." />
         ) : (
-          <DomainsTable rows={pending} caption="Custom-domain requests awaiting review" showActions />
+          <DomainsTable rows={pending} caption="Custom-domain requests awaiting review" showActions vercel={vercel} />
         )}
       </Card>
 
@@ -63,7 +67,7 @@ export default async function PlatformDomainsPage() {
         {decided.length === 0 ? (
           <EmptyState icon="domains" title="No reviewed requests yet" />
         ) : (
-          <DomainsTable rows={decided} caption="Previously reviewed custom-domain requests" showActions={false} />
+          <DomainsTable rows={decided} caption="Previously reviewed custom-domain requests" showActions={false} vercel={vercel} />
         )}
       </Card>
     </div>
@@ -74,10 +78,12 @@ function DomainsTable({
   rows,
   caption,
   showActions,
+  vercel,
 }: {
   rows: PlatformDomainRow[];
   caption: string;
   showActions: boolean;
+  vercel: boolean;
 }) {
   return (
     <Table caption={caption}>
@@ -102,19 +108,40 @@ function DomainsTable({
               {d.schoolName} <span className="text-muted">({d.schoolCode})</span>
             </TD>
             <TD>
-              <Badge tone={VERIFICATION_TONE[d.verificationStatus]}>{VERIFICATION_LABEL[d.verificationStatus]}</Badge>
+              <Badge tone={VERIFICATION_TONE[d.verificationStatus]}>
+                {d.verificationStatus === "pending" && d.connected ? "Waiting for DNS" : VERIFICATION_LABEL[d.verificationStatus]}
+              </Badge>
+              {d.dnsInstructions ? <p className="mt-1 max-w-xs text-xs text-muted">Add: {d.dnsInstructions}</p> : null}
             </TD>
             <TD className="text-sm text-muted">{formatDate(d.createdAt.slice(0, 10))}</TD>
             {showActions ? (
               <TD>
                 <div className="flex flex-wrap items-start gap-2">
-                  <ActionForm action={setDomainVerificationAction} compact aria-label={`Review ${d.domain}`}>
-                    <input type="hidden" name="domain_id" value={d.id} />
-                    <input type="hidden" name="status" value="verified" />
-                    <SubmitButton size="sm" loadingText="Saving…">
-                      Approve
-                    </SubmitButton>
-                  </ActionForm>
+                  {vercel ? (
+                    d.connected ? (
+                      <ActionForm action={checkDomainAction} compact aria-label={`Check DNS for ${d.domain}`}>
+                        <input type="hidden" name="domain_id" value={d.id} />
+                        <SubmitButton size="sm" loadingText="Checking…">
+                          Check DNS
+                        </SubmitButton>
+                      </ActionForm>
+                    ) : (
+                      <ActionForm action={connectDomainAction} compact aria-label={`Connect ${d.domain} to Vercel`}>
+                        <input type="hidden" name="domain_id" value={d.id} />
+                        <SubmitButton size="sm" loadingText="Connecting…">
+                          Connect to Vercel
+                        </SubmitButton>
+                      </ActionForm>
+                    )
+                  ) : (
+                    <ActionForm action={setDomainVerificationAction} compact aria-label={`Review ${d.domain}`}>
+                      <input type="hidden" name="domain_id" value={d.id} />
+                      <input type="hidden" name="status" value="verified" />
+                      <SubmitButton size="sm" loadingText="Saving…">
+                        Approve
+                      </SubmitButton>
+                    </ActionForm>
+                  )}
                   <ActionForm action={setDomainVerificationAction} compact aria-label={`Reject ${d.domain}`}>
                     <input type="hidden" name="domain_id" value={d.id} />
                     <input type="hidden" name="status" value="failed" />

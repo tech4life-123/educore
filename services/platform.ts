@@ -141,6 +141,10 @@ export interface PlatformDomainRow {
   isPrimary: boolean;
   verificationStatus: "pending" | "verified" | "failed";
   sslStatus: string;
+  /** Added to the Vercel project; waiting on the school's DNS. */
+  connected: boolean;
+  /** Plain-words DNS records the school still has to add (empty when none). */
+  dnsInstructions: string | null;
   createdAt: string;
 }
 
@@ -164,7 +168,7 @@ export async function listDomainsForPlatform(): Promise<PlatformDomainsResult> {
 
   const { data, error } = await admin
     .from("school_domains")
-    .select("id, school_id, domain, domain_type, is_primary, verification_status, ssl_status, created_at, schools(name, code)")
+    .select("id, school_id, domain, domain_type, is_primary, verification_status, ssl_status, vercel_domain_id, verification_token, created_at, schools(name, code)")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -185,6 +189,8 @@ export async function listDomainsForPlatform(): Promise<PlatformDomainsResult> {
       isPrimary: d.is_primary,
       verificationStatus: d.verification_status,
       sslStatus: d.ssl_status,
+      connected: d.vercel_domain_id !== null,
+      dnsInstructions: d.verification_token,
       createdAt: d.created_at,
     })),
   };
