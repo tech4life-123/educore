@@ -367,11 +367,11 @@ A review queue for the custom-domain requests schools submit through §21 — `/
 
 `lib/vercel-domains.ts` wraps the four Vercel REST calls needed (add domain to project, verify, read, remove, plus the domain config read for "is DNS pointing here"). It is configured by `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID` and optionally `VERCEL_TEAM_ID` (see `.env.example`); with those unset `getVercelConfig()` is null and the Domains page behaves as in 21.3.
 
-**Flow (super admin, `/platform/domains`).** *Connect to Vercel* adds the hostname to the project and stores the DNS records the school must add (in plain words, in `verification_token`; the school cannot read that column, so the super admin relays them). *Check DNS* asks Vercel to re-verify; when the domain is verified and not misconfigured it calls the existing `platform_set_domain_verification` to mark it `verified` and sets `ssl_status` to `issued` (Vercel issues the certificate by itself once DNS is right, so this is inferred, not observed). *Reject* also removes the domain from Vercel. No migration: the existing `vercel_domain_id` column marks "connected".
+**Flow (super admin, `/platform/domains`).** *Connect to Vercel* adds the hostname to the project and stores the DNS records the school must add (in plain words, in `verification_token`; school members can read that column (the DNS records are public by nature), and Settings shows them to the school admin). *Check DNS* asks Vercel to re-verify; when the domain is verified and not misconfigured it calls the existing `platform_set_domain_verification` to mark it `verified` and sets `ssl_status` to `issued` (Vercel issues the certificate by itself once DNS is right, so this is inferred, not observed). *Reject* also removes the domain from Vercel. No migration: the existing `vercel_domain_id` column marks "connected".
 
 **Tests.** `tests/payments/vercel-domains.test.ts` runs the client against a fake `fetch` (paths, team parameter, bearer header, idempotent add, records, no token in errors). It has **not** been run against the live Vercel API: the response shapes are read defensively, and the first real connection should be watched.
 
-**Not in this step.** Showing the DNS records to the school admin, removing an already-verified domain, and the marketing page and subdomain provisioning (steps 6 and 7).
+**Not in this step.** Removing an already-verified domain, and the marketing page and subdomain provisioning (steps 6 and 7).
 
 ### 21.5 Public school page (step 6)
 
@@ -389,7 +389,11 @@ Migration `20261015100000_provision_school_subdomains.sql` adds `platform_provis
 
 **Tests.** `supabase/tests/subdomains.sql` (20 cases: who may call it, idempotence, primary handling, reserved and invalid input, batch skipping suspended/reserved/done schools, the public page function finding the new address) and `tests/payments/school-domain-base.test.ts`.
 
-**Not in this step.** Renaming a school's address after its slug changes, letting a school choose a different subdomain, and showing the address to the school admin in Settings. This completes the multi-school domains plan.
+**Not in this step.** Renaming a school's address after its slug changes, letting a school choose a different subdomain, and letting a school admin request a custom domain from Settings. (The address list in Settings, section 21.7, is built.) This completes the multi-school domains plan.
+
+### 21.7 Web address card in Settings
+
+`getSchoolAddresses` (`services/school.ts`) reads the caller's own school's `school_domains` rows through RLS; Settings shows them to school admins in a "Web address" card: the address, whether EduCore issued it or the school owns it, main/not, a Live / Waiting / Rejected badge, any DNS records still to add, and an *Open public page* button for live addresses. With no address yet it says to ask the platform administrator. No database change.
 
 ## 23. Finance (Phase 1 — foundation)
 

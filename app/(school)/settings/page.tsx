@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ROLE_LABELS, hasCapability, type SchoolRole } from "@/lib/auth/roles";
 import { locationLine, schoolTypeLabel } from "@/lib/format";
 import { requireSchoolMember } from "@/services/auth";
-import { getSchoolProfile, getSchoolSettings } from "@/services/school";
+import { getSchoolAddresses, getSchoolProfile, getSchoolSettings } from "@/services/school";
 import { ProfileForm } from "./profile-form";
 import {
   AcademicSettingsForm,
@@ -29,9 +29,10 @@ export default async function SettingsPage() {
   const { user, profile, school } = await requireSchoolMember("/settings");
   const role = profile.role as SchoolRole;
   const isAdmin = hasCapability(role, "school.manage");
-  const [settings, schoolProfile] = await Promise.all([
+  const [settings, schoolProfile, addresses] = await Promise.all([
     getSchoolSettings(school.id),
     isAdmin ? getSchoolProfile(school.id) : Promise.resolve(null),
+    isAdmin ? getSchoolAddresses(school.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -90,6 +91,48 @@ export default async function SettingsPage() {
             />
             <CardBody>
               <SchoolProfileForm defaults={schoolProfile} />
+            </CardBody>
+          </Card>
+
+          <Card aria-labelledby="address-title">
+            <CardHeader
+              titleId="address-title"
+              title="Web address"
+              description="Visitors who open your address see a public page for your school, built from your profile and branding above. Signed-in users use the same address to sign in."
+            />
+            <CardBody>
+              {addresses.length === 0 ? (
+                <p className="text-sm text-muted">
+                  Your school does not have its own web address yet. Ask the EduCore platform administrator to set one up.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {addresses.map((a) => (
+                    <li key={a.domain} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="break-all font-mono text-sm text-foreground">{a.domain}</p>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {a.type === "subdomain" ? "Issued by EduCore" : "Your own domain"}
+                          {a.isPrimary ? " · main address" : ""}
+                        </p>
+                        {a.status === "pending" && a.dnsInstructions ? (
+                          <p className="mt-1 text-xs text-muted">Still to add at your domain provider: {a.dnsInstructions}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge tone={a.status === "verified" ? "success" : a.status === "failed" ? "danger" : "warning"}>
+                          {a.status === "verified" ? "Live" : a.status === "failed" ? "Rejected" : "Waiting"}
+                        </Badge>
+                        {a.status === "verified" ? (
+                          <ButtonLink href={`https://${a.domain}`} variant="secondary" size="sm">
+                            Open public page
+                          </ButtonLink>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardBody>
           </Card>
 

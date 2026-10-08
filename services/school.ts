@@ -66,3 +66,35 @@ export const getSchoolProfile = cache(async (schoolId: string): Promise<SchoolPr
   }
   return data;
 });
+
+export interface SchoolAddress {
+  domain: string;
+  type: "subdomain" | "custom";
+  isPrimary: boolean;
+  status: "pending" | "verified" | "failed";
+  /** Plain-words DNS records still to add, when the platform has recorded any. */
+  dnsInstructions: string | null;
+}
+
+/** The web addresses of the caller's own school (RLS: own school only), the primary one first. */
+export async function getSchoolAddresses(schoolId: string): Promise<SchoolAddress[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("school_domains")
+    .select("domain, domain_type, is_primary, verification_status, verification_token")
+    .eq("school_id", schoolId)
+    .order("is_primary", { ascending: false })
+    .order("created_at")
+    .limit(50);
+  if (error) {
+    console.error("[school] address lookup failed", error.code);
+    return [];
+  }
+  return data.map((d) => ({
+    domain: d.domain,
+    type: d.domain_type,
+    isPrimary: d.is_primary,
+    status: d.verification_status,
+    dnsInstructions: d.verification_token,
+  }));
+}
