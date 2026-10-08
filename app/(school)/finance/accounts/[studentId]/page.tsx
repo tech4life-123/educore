@@ -51,6 +51,13 @@ export default async function StudentAccountPage({ params }: PageProps<"/finance
                 <p className="mt-1 text-2xl font-semibold text-foreground">{formatMoney(b.balance, b.currency)}</p>
                 <p className="mt-1 text-xs text-subtle">
                   {formatMoney(b.totalPaid, b.currency)} paid of {formatMoney(b.totalCharges, b.currency)} charged
+                  {b.totalAdjustments > 0 || b.totalRefunded > 0 ? (
+            <span className="block">
+              {b.totalAdjustments > 0 ? `${formatMoney(b.totalAdjustments, b.currency)} discounts & waivers` : ""}
+              {b.totalAdjustments > 0 && b.totalRefunded > 0 ? " · " : ""}
+              {b.totalRefunded > 0 ? `${formatMoney(b.totalRefunded, b.currency)} refunded` : ""}
+            </span>
+          ) : null}
                 </p>
               </CardBody>
             </Card>

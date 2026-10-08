@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ApplyAdjustmentForm, RefundForm, VoidAdjustmentForm } from "@/components/finance/adjustment-forms";
 import { PaymentActions } from "@/components/finance/payment-actions";
 import { ActionForm } from "@/components/ui/action-form";
 import { Alert } from "@/components/ui/alert";
@@ -21,6 +22,7 @@ import {
   PAYMENT_STATUS_TONE,
 } from "@/lib/finance";
 import { formatDate } from "@/lib/format";
+import { hasCapability } from "@/lib/auth/roles";
 import { requireCapability } from "@/services/auth";
 import { getInvoiceDetail } from "@/services/finance";
 import { cancelInvoiceAction, issueInvoiceAction } from "../../actions";
@@ -31,12 +33,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function InvoiceDetailPage({ params, searchParams }: PageProps<"/finance/invoices/[id]">) {
   const { id } = await params;
-  await requireCapability("finance.manage", `/finance/invoices/${id}`);
+  const { profile } = await requireCapability("finance.manage", `/finance/invoices/${id}`);
+  const isAdmin = hasCapability(profile.role, "school.manage");
   if (!UUID.test(id)) notFound();
   const sp = await searchParams;
   const detail = await getInvoiceDetail(id);
   if (!detail) notFound();
-  const { invoice, items, balance, student, payments } = detail;
+  const { invoice, items, balance, student, payments, adjustments, refunds } = detail;
+  const refundedByPayment = new Map<string, number>();
+  for (const r of refunds) refundedByPayment.set(r.payment_id, (refundedByPayment.get(r.payment_id) ?? 0) + r.amount);
+  
   const cur = invoice.currency;
   const isDraft = invoice.status === "draft";
   const isIssued = invoice.status === "issued";
@@ -63,17 +69,26 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
         <Badge tone={INVOICE_DISPLAY_TONE[balance.displayStatus] ?? "neutral"}>{INVOICE_DISPLAY_LABEL[balance.displayStatus] ?? balance.displayStatus}</Badge>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${balance.adjustmentsTotal > 0 ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Card>
           <CardBody>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Total</p>
             <p className="mt-1 text-xl font-semibold">{formatMoney(balance.totalAmount, cur)}</p>
           </CardBody>
         </Card>
+        {balance.adjustmentsTotal > 0 ? (
+          <Card>
+            <CardBody>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">Discounts &amp; waivers</p>
+              <p className="mt-1 text-xl font-semibold">− {formatMoney(balance.adjustmentsTotal, cur)}</p>
+            </CardBody>
+          </Card>
+        ) : null}
         <Card>
           <CardBody>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Paid</p>
             <p className="mt-1 text-xl font-semibold">{formatMoney(balance.amountPaid, cur)}</p>
+            {balance.amountRefunded > 0 ? <p className="mt-1 text-xs text-subtle">After {formatMoney(balance.amountRefunded, cur)} refunded</p> : null}
           </CardBody>
         </Card>
         <Card>
@@ -176,12 +191,98 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
                     </TD>
                     <TD>
                       <PaymentActions paymentId={p.id} status={p.status} label={`payment ${p.reference}`} />
+                      {isAdmin && p.status === "posted" && p.amount - (refundedByPayment.get(p.id) ?? 0) > 0 ? (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs text-muted underline">Refund…</summary>
+                          <div className="mt-2">
+                            <RefundForm paymentId={p.id} maxAmount={p.amount - (refundedByPayment.get(p.id) ?? 0)} currency={p.currency} />
+                          </div>
+                        </details>
+                      ) : null}
                     </TD>
                   </TR>
                 ))}
               </TBody>
             </Table>
           )}
+        </Card>
+      ) : null}
+
+      {!isDraft && (isIssued || adjustments.length > 0) ? (
+        <Card aria-labelledby="adj-title">
+          <CardHeader
+            titleId="adj-title"
+            title="Discounts, scholarships & waivers"
+            description={isAdmin ? "Reduce what the family owes. Each one is recorded in the ledger and can be voided." : "Only the school administrator can grant these."}
+          />
+          {isAdmin && isIssued && balance.balanceDue > 0 ? (
+            <CardBody>
+              <ApplyAdjustmentForm invoiceId={invoice.id} balanceDue={balance.balanceDue} currency={cur} />
+            </CardBody>
+          ) : null}
+          {adjustments.length === 0 ? (
+            <p className="px-5 py-4 text-sm text-muted">None applied.</p>
+          ) : (
+            <Table caption="Adjustments on this invoice">
+              <THead>
+                <TR>
+                  <TH>Date</TH>
+                  <TH>Type</TH>
+                  <TH>Reason</TH>
+                  <TH className="text-right">Amount</TH>
+                  <TH>Status</TH>
+                  <TH>
+                    <span className="sr-only">Actions</span>
+                  </TH>
+                </TR>
+              </THead>
+              <TBody>
+                {adjustments.map((a) => (
+                  <TR key={a.id}>
+                    <TD className="text-sm text-muted">{formatDate(a.created_at)}</TD>
+                    <TD className="capitalize">{a.kind}</TD>
+                    <TD className="text-sm">
+                      {a.reason}
+                      {a.status === "voided" ? <span className="block text-xs text-subtle">Voided: {a.voided_reason}</span> : null}
+                    </TD>
+                    <TD className="text-right">{formatMoney(a.amount, a.currency)}</TD>
+                    <TD>
+                      <Badge tone={a.status === "applied" ? "success" : "neutral"}>{a.status === "applied" ? "Applied" : "Voided"}</Badge>
+                    </TD>
+                    <TD>{isAdmin && a.status === "applied" && isIssued ? <VoidAdjustmentForm adjustmentId={a.id} /> : null}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </Card>
+      ) : null}
+
+      {refunds.length > 0 ? (
+        <Card aria-labelledby="ref-title">
+          <CardHeader titleId="ref-title" title="Refunds" description="Money returned to the family. Refunds can’t be edited or deleted." />
+          <Table caption="Refunds on this invoice">
+            <THead>
+              <TR>
+                <TH>Date</TH>
+                <TH>Method</TH>
+                <TH>Reference</TH>
+                <TH>Reason</TH>
+                <TH className="text-right">Amount</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {refunds.map((r) => (
+                <TR key={r.id}>
+                  <TD className="text-sm text-muted">{formatDate(r.refunded_on)}</TD>
+                  <TD>{METHOD_LABEL[r.method]}</TD>
+                  <TD className="font-mono text-xs">{r.reference ?? "—"}</TD>
+                  <TD className="text-sm">{r.reason}</TD>
+                  <TD className="text-right">{formatMoney(r.amount, r.currency)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
         </Card>
       ) : null}
 

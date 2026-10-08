@@ -189,6 +189,72 @@ export async function reversePaymentAction(_prev: ActionState, formData: FormDat
   return { status: "success", message: "Payment reversed. An offsetting entry was added to the ledger." };
 }
 
+// ------------------------------------- discounts, scholarships, refunds (admin)
+// Only the school administrator may reduce what a family owes or give money
+// back; the database enforces the same rule, so this is just the early exit.
+
+const ADJUSTMENT_KINDS = new Set(["discount", "scholarship", "waiver"]);
+
+async function adminGuard() {
+  await requireCapability("school.manage", "/finance");
+  return createClient();
+}
+
+export async function applyAdjustmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const supabase = await adminGuard();
+  const id = str(formData, "invoice_id");
+  const kind = str(formData, "kind");
+  const reason = str(formData, "reason");
+  const amount = parseAmount(str(formData, "amount"));
+  if (!UUID.test(id)) return err("Invoice not found.");
+  if (!ADJUSTMENT_KINDS.has(kind)) return err("Choose discount, scholarship or waiver.");
+  if (amount === null || amount <= 0) return err("Enter an amount greater than zero (at most 2 decimals).");
+  if (reason.length < 3) return err("Give a reason (at least 3 characters).");
+  const { error } = await supabase.rpc("finance_apply_adjustment", { p_invoice_id: id, p_kind: kind, p_amount: amount, p_reason: reason });
+  if (error) return err(friendlyDbError(error, "The adjustment couldn’t be applied."));
+  revalidatePath("/finance", "layout");
+  revalidatePath("/my-fees");
+  return { status: "success", message: "Applied. The family’s balance was reduced." };
+}
+
+export async function voidAdjustmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const supabase = await adminGuard();
+  const id = str(formData, "adjustment_id");
+  const reason = str(formData, "reason");
+  if (!UUID.test(id)) return err("Adjustment not found.");
+  if (reason.length < 3) return err("Give a reason (at least 3 characters).");
+  const { error } = await supabase.rpc("finance_void_adjustment", { p_adjustment_id: id, p_reason: reason });
+  if (error) return err(friendlyDbError(error, "The adjustment couldn’t be voided."));
+  revalidatePath("/finance", "layout");
+  revalidatePath("/my-fees");
+  return { status: "success", message: "Voided. The amount is owed again." };
+}
+
+export async function refundPaymentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const supabase = await adminGuard();
+  const id = str(formData, "payment_id");
+  const method = str(formData, "method") as PaymentMethod;
+  const reason = str(formData, "reason");
+  const reference = str(formData, "reference");
+  const amount = parseAmount(str(formData, "amount"));
+  if (!UUID.test(id)) return err("Payment not found.");
+  if (!METHODS.has(method)) return err("Choose how the money was returned.");
+  if (amount === null || amount <= 0) return err("Enter an amount greater than zero (at most 2 decimals).");
+  if (reason.length < 3) return err("Give a reason (at least 3 characters).");
+  const { error } = await supabase.rpc("finance_refund_payment", {
+    p_payment_id: id,
+    p_amount: amount,
+    p_method: method,
+    p_reference: reference || (null as unknown as string),
+    p_reason: reason,
+    p_date: null as unknown as string,
+  });
+  if (error) return err(friendlyDbError(error, "The refund couldn’t be recorded."));
+  revalidatePath("/finance", "layout");
+  revalidatePath("/my-fees");
+  return { status: "success", message: "Refund recorded. Hand over the money and keep the reference." };
+}
+
 // -------------------------------------------------- fee configuration (admin)
 
 export async function createFeeStructureAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

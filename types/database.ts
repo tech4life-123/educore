@@ -2492,6 +2492,50 @@ export type Database = {
           },
         ]
       }
+      invoice_adjustments: {
+        Row: {
+          id: string
+          school_id: string
+          invoice_id: string
+          student_id: string
+          kind: string
+          amount: number
+          currency: string
+          reason: string
+          status: string
+          ledger_entry_id: string
+          voided_reason: string | null
+          voided_entry_id: string | null
+          voided_by: string | null
+          voided_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: { [_ in never]: never }
+        Update: { [_ in never]: never }
+        Relationships: []
+      }
+      payment_refunds: {
+        Row: {
+          id: string
+          school_id: string
+          payment_id: string
+          invoice_id: string | null
+          student_id: string
+          amount: number
+          currency: string
+          method: Database["public"]["Enums"]["payment_method"]
+          reference: string | null
+          reason: string
+          refunded_on: string
+          ledger_entry_id: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: { [_ in never]: never }
+        Update: { [_ in never]: never }
+        Relationships: []
+      }
     }
     Views: {
       document_request_details: {
@@ -2543,6 +2587,8 @@ export type Database = {
           total_charges: number | null
           total_paid: number | null
           balance: number | null
+          total_adjustments: number | null
+          total_refunded: number | null
         }
         Relationships: []
       }
@@ -2559,6 +2605,8 @@ export type Database = {
           amount_paid: number | null
           balance_due: number | null
           display_status: string | null
+          adjustments_total: number | null
+          amount_refunded: number | null
         }
         Relationships: []
       }
@@ -2598,6 +2646,25 @@ export type Database = {
           p_school_id: string
           p_user_id: string
           p_username: string
+        }
+        Returns: string
+      }
+      finance_apply_adjustment: {
+        Args: { p_amount: number; p_invoice_id: string; p_kind: string; p_reason: string }
+        Returns: string
+      }
+      finance_void_adjustment: {
+        Args: { p_adjustment_id: string; p_reason: string }
+        Returns: undefined
+      }
+      finance_refund_payment: {
+        Args: {
+          p_amount: number
+          p_method: Database["public"]["Enums"]["payment_method"]
+          p_payment_id: string
+          p_reason: string
+          p_reference: string
+          p_date: string
         }
         Returns: string
       }

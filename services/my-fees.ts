@@ -20,6 +20,9 @@ export interface FamilyBalance {
   currency: string;
   totalCharges: number;
   totalPaid: number;
+  /** Discounts, scholarships and waivers granted. */
+  totalAdjustments: number;
+  totalRefunded: number;
   /** Positive: still owed. Zero: settled. Negative: the school holds a credit. */
   balance: number;
 }
@@ -39,6 +42,8 @@ export interface FamilyInvoice {
   dueDate: string;
   totalAmount: number;
   amountPaid: number;
+  /** Discounts, scholarships and waivers applied to this invoice. */
+  adjustmentsTotal: number;
   balanceDue: number;
   items: FamilyInvoiceItem[];
 }
@@ -94,10 +99,10 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
 
   const supabase = await createClient();
   const [bal, inv, pay] = await Promise.all([
-    supabase.from("student_balances").select("student_id, currency, total_charges, total_paid, balance").in("student_id", ids).order("currency"),
+    supabase.from("student_balances").select("student_id, currency, total_charges, total_paid, balance, total_adjustments, total_refunded").in("student_id", ids).order("currency"),
     supabase
       .from("invoice_balances")
-      .select("invoice_id, invoice_number, student_id, currency, due_date, total_amount, amount_paid, balance_due, display_status")
+      .select("invoice_id, invoice_number, student_id, currency, due_date, total_amount, amount_paid, balance_due, display_status, adjustments_total")
       .in("student_id", ids)
       .order("due_date", { ascending: false })
       .limit(500),
@@ -145,6 +150,8 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
       currency: b.currency ?? "USD",
       totalCharges: num(b.total_charges),
       totalPaid: num(b.total_paid),
+      totalAdjustments: num(b.total_adjustments),
+      totalRefunded: num(b.total_refunded),
       balance: num(b.balance),
     })),
     invoices: (invoicesByStudent.get(person.id) ?? []).map((i) => ({
@@ -156,6 +163,7 @@ export async function getFamilyAccounts(people: { id: string; name: string }[]):
       dueDate: i.due_date ?? "",
       totalAmount: num(i.total_amount),
       amountPaid: num(i.amount_paid),
+      adjustmentsTotal: num(i.adjustments_total),
       balanceDue: num(i.balance_due),
       items: (itemsByInvoice.get(i.invoice_id ?? "") ?? []).map((it) => ({ id: it.id, description: it.description, amount: num(it.amount) })),
     })),

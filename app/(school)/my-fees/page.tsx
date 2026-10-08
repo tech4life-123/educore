@@ -110,6 +110,9 @@ export default async function MyFeesPage({ searchParams }: PageProps<"/my-fees">
                           {i.balanceDue > 0 ? (
                             <span className="block text-xs text-muted">{formatMoney(i.balanceDue, i.currency)} still owed</span>
                           ) : null}
+                          {i.adjustmentsTotal > 0 ? (
+                            <span className="block text-xs text-muted">includes {formatMoney(i.adjustmentsTotal, i.currency)} discount</span>
+                          ) : null}
                         </span>
                         <Badge tone={INVOICE_DISPLAY_TONE[i.displayStatus] ?? "neutral"}>{status}</Badge>
                       </span>
@@ -217,6 +220,13 @@ function BalanceCard({ balance: b }: { balance: FamilyBalance }) {
         <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{owing ? formatMoney(b.balance, b.currency) : credit ? formatMoney(Math.abs(b.balance), b.currency) : "Nothing owed"}</p>
         <p className="mt-1 text-xs text-subtle">
           {formatMoney(b.totalPaid, b.currency)} paid of {formatMoney(b.totalCharges, b.currency)} charged
+          {b.totalAdjustments > 0 || b.totalRefunded > 0 ? (
+            <span className="block">
+              {b.totalAdjustments > 0 ? `${formatMoney(b.totalAdjustments, b.currency)} discounts & waivers` : ""}
+              {b.totalAdjustments > 0 && b.totalRefunded > 0 ? " · " : ""}
+              {b.totalRefunded > 0 ? `${formatMoney(b.totalRefunded, b.currency)} refunded` : ""}
+            </span>
+          ) : null}
         </p>
       </CardBody>
     </Card>

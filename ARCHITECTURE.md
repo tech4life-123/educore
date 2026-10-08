@@ -460,6 +460,9 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 73 | Callbacks are authenticated by a per-account HMAC secret checked BEFORE anything is written; the secret lives in `payment_provider_secrets`, readable by no browser role | Orange/MTN and the sandbox post from outside any session, so the signature is the only proof. A separate table means no grant, view or policy on the accounts table can leak it. Secrets are shown once and can be rotated; they never enter the audit log. |
 | 74 | `provider_ingest` is service-role-only and idempotent on (account, provider transaction id) | Providers retry. The same message twice changes nothing (a redelivery counter moves); a message parked as "pending" is upgraded when the provider later reports success, because those share one id. |
 | 75 | Orange Money / MTN MoMo adapters exist but refuse everything (route answers 501) until implemented from the provider's official documentation | Their signature and payload formats are not guessed. A `live` account is also refused for any adapter that has not declared `supportsLive`. |
+| 76 | Discounts, scholarships and waivers are CREDIT `adjustment` ledger entries on issued invoices; voiding posts an offsetting `reversal` | The ledger stays append-only and every change is traceable; invoice lines stay as issued so the original fee is never rewritten |
+| 77 | Refunds are DEBIT `refund` ledger entries against a posted payment; a fully refunded payment becomes `refunded` and its receipt stops verifying | Money handed back is visible in the same ledger; refunds cannot exceed what was paid and cannot be edited or deleted |
+| 78 | Only `school_admin` may grant adjustments, void them or refund; finance officers can see but not do | Reducing what a family owes or returning money is a higher-trust act than recording it; enforced in the database, the UI only hides the controls |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
@@ -494,3 +497,13 @@ Migration: `20261009100000_payment_providers.sql`. Tests: `supabase/tests/provid
 **Outcomes** logged per message: `ingested` (new transaction), `ignored` (not successful yet / bad amount or currency — visible to finance, creates nothing), `conflict` (same reference already logged from a statement — no second row).
 
 **Not in this phase.** Collecting money from a parent (initiating a mobile-money charge / payment link), automatic matching suggestions from the payer''s phone number, per-account rate limiting, and the Orange Money / MTN MoMo adapters themselves — all need merchant credentials and the providers' documentation. Bank/API feeds (Phase 5) will use the same `provider_ingest` path with a new provider code.
+
+## 27. Discounts, scholarships, waivers and refunds (Phase 6a)
+
+Tables `invoice_adjustments` and `payment_refunds` (migration `20261010100000`) hold the *why* (kind, reason, who, when); the money itself lives in `student_account_entries`. Both tables are append-only for their key facts (an adjustment can only go `applied` → `voided` once; a refund can never change) and are written only by SECURITY DEFINER functions: `finance_apply_adjustment`, `finance_void_adjustment`, `finance_refund_payment`, each calling `assert_school_admin()` first and writing to the financial audit log.
+
+**Balances.** `invoice_balances.balance_due = total − applied adjustments − net paid`; `amount_paid` is net of refunds; `display_status` becomes `paid` when nothing is left. `student_balances` gains `total_adjustments` and `total_refunded` (new columns appended at the end). Cancelling an invoice voids its adjustments first (both the finance and the document-service cancel paths). Waivers and refunds also re-run the document-request gate so a certificate that was waived moves forward, or one whose payment was refunded moves back.
+
+**Reports.** Dashboard "collected" and the collections report are net of refunds. A partly refunded payment counts only for what the school kept.
+
+**Not in this slice.** Installments / payment plans, automated reminders, forecasting and advanced analytics (rest of Phase 6).

@@ -18,6 +18,8 @@ export type FinanceSettings = Pick<Tables<"finance_settings">, "school_id" | "de
 export type PaymentRow = Tables<"payments">;
 export type InvoiceItemRow = Tables<"invoice_items">;
 export type LedgerEntryRow = Tables<"student_account_entries">;
+export type AdjustmentRow = Tables<"invoice_adjustments">;
+export type RefundRow = Tables<"payment_refunds">;
 
 export interface StudentRef {
   studentId: string;
@@ -148,9 +150,20 @@ export async function listInvoices({
 export interface InvoiceDetail {
   invoice: Tables<"invoices">;
   items: InvoiceItemRow[];
-  balance: { totalAmount: number; amountPaid: number; balanceDue: number; displayStatus: string };
+  balance: {
+    totalAmount: number;
+    /** Net of refunds. */
+    amountPaid: number;
+    balanceDue: number;
+    displayStatus: string;
+    /** Discounts, scholarships and waivers currently applied. */
+    adjustmentsTotal: number;
+    amountRefunded: number;
+  };
   student: StudentRef | null;
   payments: PaymentRow[];
+  adjustments: AdjustmentRow[];
+  refunds: RefundRow[];
   academicYear: string | null;
   term: string | null;
 }
@@ -161,16 +174,18 @@ export async function getInvoiceDetail(invoiceId: string): Promise<InvoiceDetail
   if (error) fail("invoice", error);
   if (!invoice) return null;
 
-  const [items, bal, pays, year, term] = await Promise.all([
+  const [items, bal, pays, year, term, adjs, refs] = await Promise.all([
     supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("created_at").order("id"),
-    supabase.from("invoice_balances").select("total_amount, amount_paid, balance_due, display_status").eq("invoice_id", invoiceId).maybeSingle(),
+    supabase.from("invoice_balances").select("total_amount, amount_paid, balance_due, display_status, adjustments_total, amount_refunded").eq("invoice_id", invoiceId).maybeSingle(),
     supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
     supabase.from("academic_years").select("name").eq("id", invoice.academic_year_id).maybeSingle(),
     invoice.term_id
       ? supabase.from("academic_terms").select("name").eq("id", invoice.term_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    supabase.from("invoice_adjustments").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
+    supabase.from("payment_refunds").select("*").eq("invoice_id", invoiceId).order("created_at", { ascending: false }),
   ]);
-  for (const r of [items, bal, pays, year, term]) if (r.error) fail("invoice", r.error);
+  for (const r of [items, bal, pays, year, term, adjs, refs]) if (r.error) fail("invoice", r.error);
 
   return {
     invoice,
@@ -180,9 +195,13 @@ export async function getInvoiceDetail(invoiceId: string): Promise<InvoiceDetail
       amountPaid: num(bal.data?.amount_paid),
       balanceDue: num(bal.data?.balance_due),
       displayStatus: bal.data?.display_status ?? invoice.status,
+      adjustmentsTotal: num(bal.data?.adjustments_total),
+      amountRefunded: num(bal.data?.amount_refunded),
     },
     student: await getStudentRef(invoice.student_id),
     payments: pays.data ?? [],
+    adjustments: (adjs.data ?? []).map((a) => ({ ...a, amount: num(a.amount) })),
+    refunds: (refs.data ?? []).map((r) => ({ ...r, amount: num(r.amount) })),
     academicYear: year.data?.name ?? null,
     term: term.data?.name ?? null,
   };
@@ -229,7 +248,7 @@ export async function listPayments({
 
 export interface StudentAccount {
   student: StudentRef;
-  balances: { currency: string; totalCharges: number; totalPaid: number; balance: number }[];
+  balances: { currency: string; totalCharges: number; totalPaid: number; balance: number; totalAdjustments: number; totalRefunded: number }[];
   entries: LedgerEntryRow[];
   invoices: InvoiceListRow[];
   payments: PaymentListRow[];
@@ -240,7 +259,7 @@ export async function getStudentAccount(studentId: string): Promise<StudentAccou
   if (!student) return null;
   const supabase = await createClient();
   const [bal, entries, invoices, payments] = await Promise.all([
-    supabase.from("student_balances").select("currency, total_charges, total_paid, balance").eq("student_id", studentId).order("currency"),
+    supabase.from("student_balances").select("currency, total_charges, total_paid, balance, total_adjustments, total_refunded").eq("student_id", studentId).order("currency"),
     supabase.from("student_account_entries").select("*").eq("student_id", studentId).order("created_at", { ascending: false }).limit(200),
     listInvoices({ studentId }),
     listPayments({ studentId }),
@@ -253,6 +272,8 @@ export async function getStudentAccount(studentId: string): Promise<StudentAccou
       totalCharges: num(b.total_charges),
       totalPaid: num(b.total_paid),
       balance: num(b.balance),
+      totalAdjustments: num(b.total_adjustments),
+      totalRefunded: num(b.total_refunded),
     })),
     entries: (entries.data ?? []).map((e) => ({ ...e, amount: num(e.amount) })),
     invoices,
@@ -271,14 +292,15 @@ export interface FinanceOverview {
 
 export async function getFinanceOverview(monthStart: string): Promise<FinanceOverview> {
   const supabase = await createClient();
-  const [bal, overdue, pendingCount, month, pending] = await Promise.all([
-    supabase.from("student_balances").select("currency, total_charges, total_paid, balance").limit(10000),
+  const [bal, overdue, pendingCount, month, pending, monthRefunds] = await Promise.all([
+    supabase.from("student_balances").select("currency, total_charges, total_paid, balance, total_refunded").limit(10000),
     supabase.from("invoice_balances").select("invoice_id", { count: "exact", head: true }).eq("display_status", "overdue"),
     supabase.from("payments").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
     supabase.from("payments").select("currency, amount").eq("status", "posted").gte("paid_on", monthStart).limit(10000),
     listPayments({ status: "open", limit: 8 }),
+    supabase.from("payment_refunds").select("currency, amount").gte("refunded_on", monthStart).limit(10000),
   ]);
-  for (const r of [bal, overdue, pendingCount, month]) if (r.error) fail("finance overview", r.error);
+  for (const r of [bal, overdue, pendingCount, month, monthRefunds]) if (r.error) fail("finance overview", r.error);
 
   const per = new Map<string, { outstanding: number; charged: number; collected: number }>();
   for (const b of bal.data ?? []) {
@@ -286,11 +308,13 @@ export async function getFinanceOverview(monthStart: string): Promise<FinanceOve
     const cur = per.get(c) ?? { outstanding: 0, charged: 0, collected: 0 };
     cur.outstanding += Math.max(num(b.balance), 0);
     cur.charged += num(b.total_charges);
-    cur.collected += num(b.total_paid);
+    cur.collected += num(b.total_paid) - num(b.total_refunded); // net of refunds
     per.set(c, cur);
   }
   const monthly = new Map<string, number>();
   for (const p of month.data ?? []) monthly.set(p.currency, (monthly.get(p.currency) ?? 0) + num(p.amount));
+  // Money handed back this month comes off what was collected.
+  for (const r of monthRefunds.data ?? []) monthly.set(r.currency, (monthly.get(r.currency) ?? 0) - num(r.amount));
 
   return {
     perCurrency: [...per.entries()].map(([currency, v]) => ({ currency, ...v })).sort((a, b) => a.currency.localeCompare(b.currency)),
@@ -444,7 +468,16 @@ const dayNumber = (d: string) => Math.floor(Date.parse(`${d}T00:00:00Z`) / 86_40
 
 /** Collections (posted payments by date paid) and who still owes what. `today` is the school's local date. */
 export async function getFinanceReport(from: string, to: string, today: string): Promise<FinanceReport> {
-  const [posted, invoices] = await Promise.all([listPayments({ status: "posted", limit: 5000 }), listInvoices({ displayStatus: undefined, limit: 5000 })]);
+  const supabase = await createClient();
+  const [posted, invoices, refundRows] = await Promise.all([
+    listPayments({ status: "posted", limit: 5000 }),
+    listInvoices({ displayStatus: undefined, limit: 5000 }),
+    supabase.from("payment_refunds").select("payment_id, amount").limit(10000),
+  ]);
+  if (refundRows.error) fail("finance report", refundRows.error);
+  // A partly refunded payment counts only for what the school kept.
+  const refundedBy = new Map<string, number>();
+  for (const r of refundRows.data ?? []) refundedBy.set(r.payment_id, (refundedBy.get(r.payment_id) ?? 0) + Math.round(num(r.amount) * 100));
 
   const collections = posted
     .filter((p) => p.paid_on >= from && p.paid_on <= to)
@@ -457,7 +490,7 @@ export async function getFinanceReport(from: string, to: string, today: string):
       reference: p.reference ?? "",
       invoiceNumber: p.invoiceNumber,
       currency: p.currency,
-      amount: p.amount,
+      amount: (Math.round(p.amount * 100) - (refundedBy.get(p.id) ?? 0)) / 100,
     }));
 
   const cents = (n: number) => Math.round(n * 100);
