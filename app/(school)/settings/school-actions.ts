@@ -31,6 +31,17 @@ function text(formData: FormData, key: string): string {
     .replace(/\s+/g, " ");
 }
 
+/** Multi-line text: keeps paragraph breaks, trims, and caps blank lines at one. */
+function paragraphs(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function unreachable(): SchoolFormState {
   return {
     status: "error",
@@ -48,6 +59,7 @@ export async function updateSchoolProfile(_prev: SchoolFormState, formData: Form
   const v = {
     name: text(formData, "name"),
     motto: text(formData, "motto"),
+    about: paragraphs(formData, "about"),
     address: text(formData, "address"),
     city: text(formData, "city"),
     county: text(formData, "county"),
@@ -61,6 +73,7 @@ export async function updateSchoolProfile(_prev: SchoolFormState, formData: Form
   const e: Record<string, string> = {};
   if (v.name.length < 2 || v.name.length > 200) e.name = "Enter the school name (2–200 characters).";
   if (v.motto.length > 300) e.motto = "Use 300 characters or fewer.";
+  if (v.about.length > 2000) e.about = "Use 2,000 characters or fewer.";
   if (v.address.length > 500) e.address = "Use 500 characters or fewer.";
   if (v.city.length > 100) e.city = "Use 100 characters or fewer.";
   if (v.county.length > 100) e.county = "Use 100 characters or fewer.";
@@ -94,6 +107,7 @@ export async function updateSchoolProfile(_prev: SchoolFormState, formData: Form
       .update({
         name: v.name,
         motto: v.motto || null,
+        about: v.about || null,
         address: v.address || null,
         city: v.city || null,
         county: v.county || null,

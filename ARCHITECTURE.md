@@ -395,6 +395,10 @@ Migration `20261015100000_provision_school_subdomains.sql` adds `platform_provis
 
 `getSchoolAddresses` (`services/school.ts`) reads the caller's own school's `school_domains` rows through RLS; Settings shows them to school admins in a "Web address" card: the address, whether EduCore issued it or the school owns it, main/not, a Live / Waiting / Rejected badge, any DNS records still to add, and an *Open public page* button for live addresses. With no address yet it says to ask the platform administrator. No database change.
 
+### 21.8 "About us" on the public page
+
+Migration `20261016100000_school_about.sql` adds `schools.about` (max 2,000 characters), grants school admins update on it, and replaces `public_school_site` so it also returns `about` (decision #95). Settings > School profile has an "About your school" box (paragraph breaks kept); `/school-site` shows it as an "About us" section. `supabase/tests/public_school_site.sql` grew to 17 cases (admin can write, 2,000 allowed and 2,001 refused, a teacher and anon cannot, anon sees it on the public page).
+
 ## 23. Finance (Phase 1 — foundation)
 
 Spec: "Finance, Payments & Document Services". Phase 1 delivers the database foundation only (no pages yet): fee structures, student accounts, invoices, a payment lifecycle with manual recording, an append-only ledger, derived balances and a financial audit log. Migrations: `20261007100000_finance_officer_role.sql` (run first, alone — a new enum value cannot be used in the transaction that adds it) and `20261007100100_finance_foundation.sql`. Tests: `supabase/tests/finance.sql`.
@@ -511,6 +515,7 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 92 | A school's address is `<slug>.<EDUCORE_SCHOOL_DOMAIN>`, created by a super-admin-only function (`platform_provision_subdomain`), verified from the start; unset, nothing is created | The platform controls the name, so no DNS check is needed; off by default like the rest of the domain features |
 | 93 | No per-school Vercel call: the platform adds one wildcard (`*.base`) to the Vercel project once | A new school needs no extra DNS or API step and cannot fail halfway |
 | 94 | The function is idempotent, never replaces a school's existing primary domain, and refuses reserved names (www, app, api, admin, platform, mail, ...) | Re-running is safe; a school can never take an address that looks like the platform's own |
+| 95 | A school's "About us" is plain text only (up to 2,000 characters, paragraphs split on blank lines), editable by school admins like other profile fields, and returned by `public_school_site` | No HTML means nothing to sanitise on a page anyone can open; the public function still returns profile text only |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 

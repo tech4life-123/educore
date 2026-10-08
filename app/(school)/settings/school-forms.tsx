@@ -39,6 +39,7 @@ export interface SchoolProfileDefaults {
   name: string;
   code: string;
   motto: string | null;
+  about: string | null;
   address: string | null;
   city: string | null;
   county: string | null;
@@ -90,6 +91,25 @@ export function SchoolProfileForm({ defaults }: { defaults: SchoolProfileDefault
         onChange={(e) => setMotto(e.target.value)}
         error={err.motto}
       />
+      <div className="space-y-1.5">
+        <label htmlFor="school-about" className="block text-sm font-medium text-foreground">
+          About your school
+        </label>
+        <textarea
+          id="school-about"
+          name="about"
+          rows={5}
+          maxLength={2000}
+          defaultValue={state.values?.about ?? defaults.about ?? ""}
+          aria-invalid={err.about ? true : undefined}
+          aria-describedby="school-about-hint"
+          className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-base text-foreground placeholder:text-subtle aria-[invalid=true]:border-danger sm:text-sm"
+        />
+        <p id="school-about-hint" className="text-xs text-subtle">
+          A few short paragraphs shown on your public web page (up to 2,000 characters). Plain text only; leave a blank line between paragraphs.
+        </p>
+        {err.about ? <p className="text-sm font-medium text-danger">{err.about}</p> : null}
+      </div>
       <TextField
         id="school-address"
         name="address"

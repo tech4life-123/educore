@@ -2246,6 +2246,7 @@ export type Database = {
       }
       schools: {
         Row: {
+          about: string | null
           address: string | null
           city: string | null
           code: string
@@ -2271,6 +2272,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          about?: string | null
           address?: string | null
           city?: string | null
           code: string
@@ -2296,6 +2298,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          about?: string | null
           address?: string | null
           city?: string | null
           code?: string
@@ -2714,6 +2717,7 @@ export type Database = {
           name: string
           school_type: Database["public"]["Enums"]["school_type"]
           motto: string | null
+          about: string | null
           logo_url: string | null
           cover_image_url: string | null
           address: string | null

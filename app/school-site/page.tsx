@@ -78,6 +78,21 @@ export default async function SchoolSitePage() {
           </div>
         </section>
 
+        {site.about ? (
+          <section className="mx-auto max-w-3xl px-4 pt-12 sm:px-6" aria-labelledby="about-title">
+            <h2 id="about-title" className="text-xl font-semibold text-foreground">
+              About us
+            </h2>
+            <div className="mt-4 space-y-4 text-foreground">
+              {site.about.split(/\n{2,}/).map((para, i) => (
+                <p key={i} className="whitespace-pre-line">
+                  {para}
+                </p>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {contacts.length > 0 ? (
           <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6" aria-labelledby="contact-title">
             <h2 id="contact-title" className="text-xl font-semibold text-foreground">
