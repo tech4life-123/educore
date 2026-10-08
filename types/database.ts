@@ -2706,6 +2706,8 @@ export type Database = {
       }
     }
     Functions: {
+      platform_provision_subdomain: { Args: { p_school_id: string; p_base: string }; Returns: string }
+      platform_provision_missing_subdomains: { Args: { p_base: string }; Returns: number }
       public_school_site: {
         Args: { p_domain: string }
         Returns: {

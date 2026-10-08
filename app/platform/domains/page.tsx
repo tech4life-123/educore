@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ActionForm } from "@/components/ui/action-form";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -10,8 +10,9 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { requireSuperAdmin } from "@/services/auth";
 import { listDomainsForPlatform, type PlatformDomainRow } from "@/services/platform";
+import { getSchoolDomainBase } from "@/lib/env";
 import { getVercelConfig } from "@/lib/vercel-domains";
-import { checkDomainAction, connectDomainAction, setDomainVerificationAction } from "./actions";
+import { checkDomainAction, connectDomainAction, provisionMissingSubdomainsAction, setDomainVerificationAction } from "./actions";
 
 export const metadata: Metadata = { title: "Domains" };
 
@@ -36,6 +37,8 @@ export default async function PlatformDomainsPage() {
   const pending = custom.filter((d) => d.verificationStatus === "pending");
   const decided = custom.filter((d) => d.verificationStatus !== "pending");
   const vercel = getVercelConfig() !== null;
+  const base = getSchoolDomainBase();
+  const subdomains = result.domains.filter((d) => d.domainType === "subdomain");
 
   return (
     <div className="space-y-6">
@@ -48,6 +51,28 @@ export default async function PlatformDomainsPage() {
             : "Vercel is not connected on this deployment, so approving a request only records a review decision; DNS and certificates are handled by hand."}
         </p>
       </div>
+
+      <Card aria-labelledby="addresses-title">
+        <CardHeader
+          titleId="addresses-title"
+          title="School addresses"
+          description={
+            base
+              ? `Every school gets its own address, like yourschool.${base}. ${subdomains.length} created so far.`
+              : "Automatic school addresses are off. Set EDUCORE_SCHOOL_DOMAIN to your platform domain to turn them on."
+          }
+        />
+        {base ? (
+          <CardBody className="space-y-3">
+            <ActionForm action={provisionMissingSubdomainsAction} compact aria-label="Create missing school addresses">
+              <SubmitButton size="sm" loadingText="Creating…">
+                Create missing school addresses
+              </SubmitButton>
+            </ActionForm>
+            {subdomains.length > 0 ? <DomainsTable rows={subdomains} caption="School addresses" showActions={false} vercel={vercel} /> : null}
+          </CardBody>
+        ) : null}
+      </Card>
 
       <Card aria-labelledby="pending-title">
         <CardHeader

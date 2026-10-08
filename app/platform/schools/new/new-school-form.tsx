@@ -41,6 +41,7 @@ function NewSchoolFormInner({ onReset, siteUrl }: { siteUrl: string; onReset: ()
       <div className="space-y-6">
         <Alert tone="success" title="School created">
           {c.schoolName} ({c.schoolCode}) is active on EduCore.
+          {c.address ? ` Its address is ${c.address}.` : ""}
         </Alert>
         {c.admin ? (
           <CredentialsCard

@@ -381,6 +381,16 @@ Migration `20261014100000_public_school_site.sql` adds one function, `public_sch
 
 **Not in this step.** School-written "about" text, a school-controlled switch to hide the page, news or admissions content, and subdomain auto-provisioning (step 7).
 
+### 21.6 Automatic school addresses (step 7)
+
+Migration `20261015100000_provision_school_subdomains.sql` adds `platform_provision_subdomain(school, base)` and `platform_provision_missing_subdomains(base)` (super admin only, checked first inside the function; decisions #92-94). `createSchoolAction` calls the first right after the school is created when `EDUCORE_SCHOOL_DOMAIN` is set (a failure never undoes the school and is retried from the Domains page); `/platform/domains` has a "School addresses" card with a *Create missing school addresses* button for schools that already existed. `lib/env.ts` `getSchoolDomainBase()` accepts only a plain hostname.
+
+**One-time platform setup (done by the owner, not by code).** Own a domain, point a wildcard (`*.base`) at Vercel, add `*.base` to the Vercel project (Vercel requires its nameservers for wildcard certificates), then set `EDUCORE_SCHOOL_DOMAIN=base` and `EDUCORE_PRIMARY_HOSTS` to the host(s) people sign in through. Not yet exercised against a real domain.
+
+**Tests.** `supabase/tests/subdomains.sql` (20 cases: who may call it, idempotence, primary handling, reserved and invalid input, batch skipping suspended/reserved/done schools, the public page function finding the new address) and `tests/payments/school-domain-base.test.ts`.
+
+**Not in this step.** Renaming a school's address after its slug changes, letting a school choose a different subdomain, and showing the address to the school admin in Settings. This completes the multi-school domains plan.
+
 ## 23. Finance (Phase 1 — foundation)
 
 Spec: "Finance, Payments & Document Services". Phase 1 delivers the database foundation only (no pages yet): fee structures, student accounts, invoices, a payment lifecycle with manual recording, an append-only ledger, derived balances and a financial audit log. Migrations: `20261007100000_finance_officer_role.sql` (run first, alone — a new enum value cannot be used in the transaction that adds it) and `20261007100100_finance_foundation.sql`. Tests: `supabase/tests/finance.sql`.
@@ -494,6 +504,9 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 89 | A school's public page is chosen by the request hostname only, through `public_school_site(p_domain)`; it takes no school id from the URL | The page cannot be used to browse or probe other schools |
 | 90 | The function returns the public profile only (name, type, motto, logo, cover, address, phone, email, website, colour) and only for a verified domain of an active school; no ids, status, code, currency or any people or finance data | Minimal exposure; a school gets a public page only after its domain is verified |
 | 91 | `proxy.ts` rewrites only `/` on a verified school domain to `/school-site`; sign-in and the app are unchanged, and it stays behind `EDUCORE_PRIMARY_HOSTS` | Smallest reversible change to the file that caused an incident before (decision #45) |
+| 92 | A school's address is `<slug>.<EDUCORE_SCHOOL_DOMAIN>`, created by a super-admin-only function (`platform_provision_subdomain`), verified from the start; unset, nothing is created | The platform controls the name, so no DNS check is needed; off by default like the rest of the domain features |
+| 93 | No per-school Vercel call: the platform adds one wildcard (`*.base`) to the Vercel project once | A new school needs no extra DNS or API step and cannot fail halfway |
+| 94 | The function is idempotent, never replaces a school's existing primary domain, and refuses reserved names (www, app, api, admin, platform, mail, ...) | Re-running is safe; a school can never take an address that looks like the platform's own |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 

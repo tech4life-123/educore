@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getSchoolDomainBase } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { requireSuperAdmin } from "@/services/auth";
 import { MemberError, createMember, type CreatedMember } from "@/services/members";
@@ -10,7 +11,7 @@ export interface CreateSchoolState {
   formError?: string;
   fieldErrors?: Partial<Record<"name" | "code" | "slug" | "primaryColor" | "adminUsername" | "adminEmail", string>>;
   values?: Record<string, string>;
-  created?: { schoolName: string; schoolCode: string; admin?: CreatedMember; adminError?: string };
+  created?: { schoolName: string; schoolCode: string; admin?: CreatedMember; adminError?: string; address?: string };
 }
 
 const SCHOOL_TYPES = new Set(["high_school", "junior_high", "elementary", "university", "college", "vocational", "other"]);
@@ -71,6 +72,16 @@ export async function createSchoolAction(_prev: CreateSchoolState, formData: For
 
   revalidatePath("/platform");
 
+  // Give the school its own address (<slug>.<base>) when the platform has a base
+  // domain configured. A failure never undoes the school; the Domains page can retry.
+  let address: string | undefined;
+  const base = getSchoolDomainBase();
+  if (base) {
+    const { data: domain, error: domainError } = await supabase.rpc("platform_provision_subdomain", { p_school_id: schoolId, p_base: base });
+    if (domainError) console.error("[platform] subdomain provisioning failed", domainError.code);
+    else address = domain ?? undefined;
+  }
+
   try {
     const admin = await createMember(
       { id: schoolId, code: values.code },
@@ -82,12 +93,13 @@ export async function createSchoolAction(_prev: CreateSchoolState, formData: For
         email: values.adminEmail,
       },
     );
-    return { created: { schoolName: values.name, schoolCode: values.code, admin } };
+    return { created: { schoolName: values.name, schoolCode: values.code, admin, address } };
   } catch (e) {
     return {
       created: {
         schoolName: values.name,
         schoolCode: values.code,
+        address,
         adminError: e instanceof MemberError ? e.message : "The administrator account couldn’t be created.",
       },
     };

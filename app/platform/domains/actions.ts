@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { friendlyDbError, type ActionState } from "@/lib/action-state";
+import { getSchoolDomainBase } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { checkDomain, connectDomain, describeRecords, disconnectDomain, getVercelConfig } from "@/lib/vercel-domains";
@@ -132,4 +133,16 @@ export async function checkDomainAction(_prev: ActionState, formData: FormData):
     status: "error",
     message: instructions ? `Not ready yet. Still needed: ${instructions}.` : "Not ready yet. DNS changes can take a while to spread; try again later.",
   };
+}
+
+/** Gives every active school that has no system address one (<slug>.<base>). Safe to press repeatedly. */
+export async function provisionMissingSubdomainsAction(): Promise<ActionState> {
+  await requireSuperAdmin();
+  const base = getSchoolDomainBase();
+  if (!base) return { status: "error", message: "No base domain is set (EDUCORE_SCHOOL_DOMAIN)." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("platform_provision_missing_subdomains", { p_base: base });
+  if (error) return { status: "error", message: friendlyDbError(error, "The addresses couldn’t be created.") };
+  revalidatePath("/platform/domains");
+  return { status: "success", message: data === 0 ? "Every active school already has an address." : `Created ${data} school address${data === 1 ? "" : "es"}.` };
 }

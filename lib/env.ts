@@ -81,3 +81,13 @@ export function getPrimaryHosts(): string[] {
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);
 }
+
+/**
+ * The platform-owned base domain for school addresses (<slug>.<base>), e.g.
+ * "educore.example". Unset means automatic school addresses are off. Only a
+ * plain hostname is accepted; anything else is treated as unset.
+ */
+export function getSchoolDomainBase(): string | undefined {
+  const v = (process.env.EDUCORE_SCHOOL_DOMAIN ?? "").trim().toLowerCase();
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v) ? v : undefined;
+}
