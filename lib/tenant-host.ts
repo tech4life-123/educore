@@ -22,6 +22,12 @@ export function isKnownAppHost(hostname: string): boolean {
   return getPrimaryHosts().includes(h);
 }
 
+/** Lowercased hostname without any port, or null when there is none. */
+export function hostnameOf(host: string | null | undefined): string | null {
+  const h = host?.split(":")[0]?.trim().toLowerCase();
+  return h ? h : null;
+}
+
 /**
  * Resolves a request hostname to the school that owns it, for a visitor who
  * may not be signed in at all. Returns null when the host has no verified

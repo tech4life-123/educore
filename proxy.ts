@@ -13,13 +13,17 @@ export async function proxy(request: NextRequest) {
 
     if (hostname && !isKnownAppHost(hostname)) {
       const match = await resolveTenantHost(hostname);
-      // No marketing page exists yet (a later phase) — a resolved match
-      // falls through to the ordinary app below, same as today. Only a
-      // hostname that is neither this app's own host NOR a verified school
-      // domain gets the fallback, so an unconfigured or not-yet-verified
+      // A hostname that is neither this app's own host NOR a verified school
+      // domain gets the generic fallback, so an unconfigured or not-yet-verified
       // domain never silently serves the full app under a stranger's name.
       if (!match) {
         return NextResponse.rewrite(new URL("/site-unavailable", request.url));
+      }
+      // A verified school domain shows that school's public page at its front
+      // door only; every other path (sign-in, the app itself) is unchanged.
+      // The page re-derives the school from the hostname (ARCHITECTURE.md §21.5).
+      if (request.nextUrl.pathname === "/") {
+        return NextResponse.rewrite(new URL("/school-site", request.url));
       }
     }
   }

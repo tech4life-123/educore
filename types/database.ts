@@ -2706,6 +2706,24 @@ export type Database = {
       }
     }
     Functions: {
+      public_school_site: {
+        Args: { p_domain: string }
+        Returns: {
+          name: string
+          school_type: Database["public"]["Enums"]["school_type"]
+          motto: string | null
+          logo_url: string | null
+          cover_image_url: string | null
+          address: string | null
+          city: string | null
+          county: string | null
+          country: string
+          phone: string | null
+          email: string | null
+          website: string | null
+          primary_color: string | null
+        }[]
+      }
       add_standard_subjects: { Args: never; Returns: number }
       create_academic_year: {
         Args: {

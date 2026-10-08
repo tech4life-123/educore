@@ -373,6 +373,14 @@ A review queue for the custom-domain requests schools submit through §21 — `/
 
 **Not in this step.** Showing the DNS records to the school admin, removing an already-verified domain, and the marketing page and subdomain provisioning (steps 6 and 7).
 
+### 21.5 Public school page (step 6)
+
+Migration `20261014100000_public_school_site.sql` adds one function, `public_school_site(p_domain text)`, callable by `anon`, returning the school's public profile for a verified domain of an active school and nothing otherwise (decisions #89-90). `app/school-site/page.tsx` renders it: school name and logo (or initials), motto, optional cover image, contact details, a Sign in button, in the school's brand colour. `proxy.ts` rewrites `/` on a verified school domain to that page (decision #91); direct visits to `/school-site` on the app's own host show a 404 because no school matches.
+
+**Tests.** `supabase/tests/public_school_site.sql` (11 cases: verified/pending/rejected/suspended/unknown/null host, case and spacing, no id or status columns returned, schools table still unreadable by anon). **Not tested in a browser or on a live domain**: no verified domain exists yet and the build environment has no database credentials.
+
+**Not in this step.** School-written "about" text, a school-controlled switch to hide the page, news or admissions content, and subdomain auto-provisioning (step 7).
+
 ## 23. Finance (Phase 1 — foundation)
 
 Spec: "Finance, Payments & Document Services". Phase 1 delivers the database foundation only (no pages yet): fee structures, student accounts, invoices, a payment lifecycle with manual recording, an append-only ledger, derived balances and a financial audit log. Migrations: `20261007100000_finance_officer_role.sql` (run first, alone — a new enum value cannot be used in the transaction that adds it) and `20261007100100_finance_foundation.sql`. Tests: `supabase/tests/finance.sql`.
@@ -483,6 +491,9 @@ Spec: "Finance, Payments & Document Services". Phase 1 delivers the database fou
 | 86 | Vercel domain connection is off unless `VERCEL_API_TOKEN` and `VERCEL_PROJECT_ID` are set; unset, the dashboard keeps its manual review | Nothing changes for a deployment that has not opted in; the token lives only in server environment variables |
 | 87 | With Vercel on, a custom domain becomes `verified` only after Vercel confirms ownership and correct DNS (Check DNS); "pending" plus a stored Vercel link means "waiting for DNS" | `verified` is what makes the proxy route the host, so it must mean the domain really works. No schema change needed |
 | 88 | Only a super admin can connect, check or reject; the Vercel call happens in the server action after that check, and Vercel errors are shown without the token | Same boundary as the rest of the platform tools |
+| 89 | A school's public page is chosen by the request hostname only, through `public_school_site(p_domain)`; it takes no school id from the URL | The page cannot be used to browse or probe other schools |
+| 90 | The function returns the public profile only (name, type, motto, logo, cover, address, phone, email, website, colour) and only for a verified domain of an active school; no ids, status, code, currency or any people or finance data | Minimal exposure; a school gets a public page only after its domain is verified |
+| 91 | `proxy.ts` rewrites only `/` on a verified school domain to `/school-site`; sign-in and the app are unchanged, and it stays behind `EDUCORE_PRIMARY_HOSTS` | Smallest reversible change to the file that caused an incident before (decision #45) |
 
 ## 24. Finance (Phase 2 — manual payments, receipts, reconciliation, reports)
 
